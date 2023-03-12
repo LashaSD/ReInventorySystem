@@ -4,7 +4,7 @@ local StorageIndex = 0
 
 local InventoryHandler = {}
 
-local TileSize = 48 -- Both Width and height since tiles are just squares
+local TileSize -- Both Width and height since tiles are just squares
 
 --[[ 
     Generate inventory with the given Width and Height (in tiles)
@@ -22,7 +22,8 @@ end
 function InventoryHandler.GenerateInventory(Parent, Width, Height)
     local Tile = script:WaitForChild("Tile")
 	local Storage = script:WaitForChild("Storage"):Clone()
-	
+	TileSize = Tile.Size.X.Offset
+
 	Storage.Size = UDim2.new(0, TileSize * Width, 0, TileSize * Height)
     Storage.Parent = Parent
 	
@@ -42,6 +43,7 @@ function InventoryHandler.GenerateInventory(Parent, Width, Height)
 			data.Tiles[x][y] = {
 				["Claimed"] = false,
 				["Owner"] = nil,
+				["TileFrame"] = TileClone,
 			}
 		end
 	end
