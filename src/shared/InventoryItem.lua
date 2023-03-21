@@ -1,5 +1,6 @@
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
 
 local InventoryHandler = require(script.Parent.InventoryHandler)
 
@@ -16,9 +17,16 @@ function InventoryItem.new(Item, Storage, tileX, tileY)
 	self.TileY = tileY or nil
 	self.Item = Item
     self.StorageData = InventoryHandler.GetDataFromStorage(Storage)
+
     self.DragFrame = DragabbleItem.new(Item)
+    self.Offset = UDim2.fromOffset(0,0)
+
     self.OriginPosition = nil
-    self.OriginOrientation = nil
+
+    self.OriginOrientation = self.Item.Rotation
+    self.CurrentOrientation = self.Item.Rotation
+
+    self.OriginStorageData = self.StorageData
 	return self
 end
 
@@ -37,18 +45,21 @@ function InventoryItem:Init()
         Find free space automatically to place items in, without given tile coords
     ]]--
 	self:ChangeLocationWithinStorage(self.TileX, self.TileY)
+    self.OriginPosition = self.Item.Position
 
-    -- male draggable
+    -- make draggable
     self.DragFrame:Enable()
 
     local HoverConnection = nil
     local rotateConnection = nil
+    local mouseConnection = nil
     self.DragFrame.DragStarted = function()
         self.Item.ZIndex = 2 -- makes the item we're dragging overlap other items and ui
         -- make the tiles that the item was on claimable
         self:UnclaimCurrentTiles()
-        HoverConnection = self:ItemHover() -- for indicating which spaces are valid for our item to be placed in 
-        rotateConnection = self:Rotate() -- rotating the part when player hits "R" on keyboard
+        HoverConnection = self:GetItemHover() -- for indicating which spaces are valid for our item to be placed in 
+        rotateConnection = self:GetRotate() -- rotating the part when player hits "R" on keyboard
+        mouseConnection = self:GetMouseMove() -- locks the items position to the mouse
     end 
 
     -- lock item into a valid set of tiles
@@ -56,16 +67,22 @@ function InventoryItem:Init()
         -- reset the connection so the item isn't rotatable after placing it 
         rotateConnection:Disconnect()
         rotateConnection = nil
+        mouseConnection:Disconnect()
+        mouseConnection = nil
         self.Item.ZIndex = 1
         local width = self.Item:GetAttribute("Width")
         local height = self.Item:GetAttribute("Height")
         local x, y, valid = self:CheckValidLocation(width, height)
-        if valid then 
+        if valid then
+            self.CurrentOrientation = self.Item.Rotation
             self:ChangeLocationWithinStorage(x, y)
         else 
             -- returns the item to the position it was in originally before dragging it
-            self:ChangeLocationWithinStorage(self.OriginPosition.X.Offset, self.OriginPosition.Y.Offset, self.OriginOrientation)
+            self:ChangeLocationWithinStorage(self.TileX, self.TileY)
+            -- self:ChangeStorage(self.OriginStorageData)
         end 
+        self.OriginPosition = self.Item.Position
+        -- print(self.OriginPosition)
     end
 
     --[[ INTERACTION MENU FOR DELETING THE ITEM (DONT DELETE THE CODE) ]]--
@@ -88,14 +105,13 @@ function InventoryItem:Init()
     return self
 end
 
-function InventoryItem:ItemHover()
+function InventoryItem:GetItemHover()
 
     local lastX, lastY = nil, nil
     local lastWidth = self.Item:GetAttribute("Width")
     local lastHeight = self.Item:GetAttribute("Height")
 
-    local connection = self.Item:GetPropertyChangedSignal("Position"):Connect(function()
-
+    local connection = self.Item:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
         local width = self.Item:GetAttribute("Width")
         local height = self.Item:GetAttribute("Height")
 
@@ -126,21 +142,10 @@ function InventoryItem:ItemHover()
         lastWidth = width
         lastHeight = height
     end)
-    return connection, lastX, lastY
+    return connection
 end 
 
-function InventoryItem:HoverClear(lastX, lastY)
-    print(lastX, lastY)
-    local width = self.Item:GetAttribute("Width")
-	local height = self.Item:GetAttribute("Height")
-    for X = lastX, lastX + width - 1 do
-        for Y = lastY, lastY + height - 1 do 
-            self.StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = Color3.fromRGB(255,255,255)
-        end 
-    end
-end 
-
-function InventoryItem:Rotate()
+function InventoryItem:GetRotate()
     local connection = UserInputService.InputBegan:Connect(function(input)
         if input.KeyCode == Enum.KeyCode.R then
             local width = self.Item:GetAttribute("Width")
@@ -148,27 +153,51 @@ function InventoryItem:Rotate()
             self.Item:SetAttribute("Height", width)
             self.Item:SetAttribute("Width", height)
             self.Item.Rotation = self.Item.Rotation + 90
+            if self.Item.Rotation % 180 ~= 0 and width ~= height then 
+                self.Offset = UDim2.fromOffset(TileSize/2, -TileSize/2)
+            else 
+                self.Offset = UDim2.fromOffset(0,0)
+            end 
         end
     end)
     return connection 
 end 
 
+function InventoryItem:GetMouseMove()
+    local connection = Mouse.Move:Connect(function()
+        local mousePos = UserInputService:GetMouseLocation()
+        local translatePos = self.Item.AbsolutePosition - mousePos
+        self.Item.Position = UDim2.fromOffset(translatePos.X, translatePos.Y)
+    end)
+    return connection 
+end
+
 function InventoryItem:CheckValidLocation(width, height) 
 	local ItemPosition = self.Item.Position
-	local tiles = self.StorageData.Tiles
 	
-	local MaxTilesX = #tiles
-	local MaxTilesY = #tiles[0]
+    local StorageData = InventoryHandler.GetStorageFromPosition(self.Item.AbsolutePosition)
+    if self.StorageData ~= StorageData and StorageData ~= nil then
+        print(StorageData.Storage.Name)
+        -- self:ChangeStorage(StorageData)
+    end
 
-    local X = ItemPosition.X.Offset
-    local Y = ItemPosition.Y.Offset
+	local MaxTilesX = #self.StorageData.Tiles
+	local MaxTilesY = #self.StorageData.Tiles[0]
+
+    local tiles = self.StorageData.Tiles
+
+    local X = (ItemPosition - self.Offset).X.Offset
+    local Y = (ItemPosition - self.Offset).Y.Offset
 
     local translateX = math.floor(X/TileSize)
     local translateY = math.floor(Y/TileSize)
 
     if translateX > MaxTilesX - width then translateX = (MaxTilesX - width) + 1 end
+
 	if translateX < 0 then translateX = 0 end
+
     if translateY > MaxTilesY - height then translateY = (MaxTilesY - height) + 1 end
+
 	if translateY < 0 then translateY = 0 end
 
     local valid = true
@@ -183,23 +212,37 @@ function InventoryItem:CheckValidLocation(width, height)
     return translateX, translateY, valid
 end
 
-function InventoryItem:ChangeLocationWithinStorage(tileX, tileY, orientation)
+function InventoryItem:ChangeLocationWithinStorage(tileX, tileY)
     local width = self.Item:GetAttribute("Width")
 	local height = self.Item:GetAttribute("Height")
     self.TileX = tileX
     self.TileY = tileY
     self.StorageData.ClaimTiles(tileX, tileY, width, height, self.Item)
-    self.Item.Position = UDim2.new(0, tileX * TileSize, 0, tileY * TileSize)
-    print(self.Item.Position)
-    if orientation then
-        self.Item.Rotation = orientation
-        self:HoverClear(tileX, tileY)
-        self.Item:SetAttribute("Width", height)
-        self.Item:SetAttribute("Height", width)
+    self.Item.Position = UDim2.new(0, tileX * TileSize, 0, tileY * TileSize) + self.Offset
+    if self.Item.Rotation ~= self.CurrentOrientation then
+        self.Item.Rotation = self.OriginOrientation
+        self.CurrentOrientation = self.Item.Rotation
     end
-    self.OriginPosition = self.Item.Position
-    self.OriginOrientation = self.Item.Rotation
+    self:HoverClear(tileX, tileY)
 end
+
+function InventoryItem:HoverClear(lastX, lastY)
+    local width = self.Item:GetAttribute("Width")
+	local height = self.Item:GetAttribute("Height")
+    for X = lastX, lastX + width - 1 do
+        for Y = lastY, lastY + height - 1 do 
+            self.StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = Color3.fromRGB(255,255,255)
+        end 
+    end
+end 
+
+function InventoryItem:ChangeStorage(StorageData)
+    self.StorageData = StorageData
+    local ItemPos = self.Item.AbsolutePosition
+    self.Item.Parent = StorageData.Storage
+    -- self.Item.Position = UDim2.fromOffset(self.Item.AbsolutePosition - self.Item.Parent.AbsolutePosition)
+    -- print(self.Item.Position)
+end 
 
 function InventoryItem:UnclaimCurrentTiles()
     local width = self.Item:GetAttribute("Width")
