@@ -31,8 +31,8 @@ function InventoryHandler.GetDataFromStorage(Storage)
 end
 
 function InventoryHandler.GenerateInventory(Parent, Width, Height, Name)
-    local Tile = script:WaitForChild("Tile")
-	local Storage = script:WaitForChild("Storage"):Clone()
+    local Tile = script.Parent:WaitForChild("Tile")
+	local Storage = script.Parent:WaitForChild("Storage"):Clone()
 	TileSize = Tile.Size.X.Offset
 
 	local Name = Name or "Storage"
