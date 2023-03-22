@@ -65,6 +65,8 @@ function InventoryItem:Init()
     -- lock item into a valid set of tiles
     self.DragFrame.DragEnded = function()
         -- reset the connection so the item isn't rotatable after placing it 
+        HoverConnection:Disconnect()
+        HoverConnection = nil
         rotateConnection:Disconnect()
         rotateConnection = nil
         mouseConnection:Disconnect()
@@ -78,6 +80,7 @@ function InventoryItem:Init()
             self:ChangeLocationWithinStorage(x, y)
         else 
             -- returns the item to the position it was in originally before dragging it
+            self:HoverClear(x,y)
             self:ChangeLocationWithinStorage(self.TileX, self.TileY)
             -- self:ChangeStorage(self.OriginStorageData)
         end 
@@ -111,7 +114,7 @@ function InventoryItem:GetItemHover()
     local lastWidth = self.Item:GetAttribute("Width")
     local lastHeight = self.Item:GetAttribute("Height")
 
-    local connection = self.Item:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+    local connection = self.Item:GetPropertyChangedSignal("Position"):Connect(function()
         local width = self.Item:GetAttribute("Width")
         local height = self.Item:GetAttribute("Height")
 
