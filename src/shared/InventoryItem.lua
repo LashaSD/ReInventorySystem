@@ -1,10 +1,12 @@
 local RunService = game:GetService("RunService")
+local ServerScriptService = game:GetService("ServerScriptService")
 local UserInputService = game:GetService("UserInputService")
 local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
 
 local InventoryHandler = require(script.Parent.InventoryHandler)
 
 local DragabbleItem = require(script.Parent:WaitForChild("DraggableObject"))
+local Events = script.Parent.Events
 
 local TileSize 
 
@@ -13,9 +15,12 @@ InventoryItem.__index = InventoryItem
 
 function InventoryItem.new(Item, Storage, tileX, tileY)
 	local self = setmetatable({}, InventoryItem)
+
 	self.TileX = tileX or nil
 	self.TileY = tileY or nil
+
 	self.Item = Item
+
     self.StorageData = InventoryHandler.GetDataFromStorage(Storage)
 
     self.DragFrame = DragabbleItem.new(Item)
@@ -26,7 +31,7 @@ function InventoryItem.new(Item, Storage, tileX, tileY)
     self.OriginOrientation = self.Item.Rotation
     self.CurrentOrientation = self.Item.Rotation
 
-    self.OriginStorageData = self.StorageData
+    self.PendingStorage = nil
 	return self
 end
 
@@ -54,12 +59,12 @@ function InventoryItem:Init()
     local rotateConnection = nil
     local mouseConnection = nil
     self.DragFrame.DragStarted = function()
-        self.Item.ZIndex = 2 -- makes the item we're dragging overlap other items and ui
+        self.Item.ZIndex = 5 -- makes the item we're dragging overlap other items and ui
         -- make the tiles that the item was on claimable
         self:UnclaimCurrentTiles()
         HoverConnection = self:GetItemHover() -- for indicating which spaces are valid for our item to be placed in 
         rotateConnection = self:GetRotate() -- rotating the part when player hits "R" on keyboard
-        mouseConnection = self:GetMouseMove() -- locks the items position to the mouse
+        -- mouseConnection = self:GetMouseMove() -- locks the items position to the mouse
     end 
 
     -- lock item into a valid set of tiles
@@ -69,24 +74,51 @@ function InventoryItem:Init()
         HoverConnection = nil
         rotateConnection:Disconnect()
         rotateConnection = nil
-        mouseConnection:Disconnect()
+        -- mouseConnection:Disconnect()
         mouseConnection = nil
         self.Item.ZIndex = 1
         local width = self.Item:GetAttribute("Width")
         local height = self.Item:GetAttribute("Height")
         local x, y, valid = self:CheckValidLocation(width, height)
+        local tileX = valid and x or self.TileX
+        local tileY = valid and y or self.TileY
         if valid then
             self.CurrentOrientation = self.Item.Rotation
-            self:ChangeLocationWithinStorage(x, y)
+            -- self:ChangeLocationWithinStorage(x, y)
         else 
+            self:HoverClear(x, y)
             -- returns the item to the position it was in originally before dragging it
-            self:HoverClear(x,y)
-            self:ChangeLocationWithinStorage(self.TileX, self.TileY)
             -- self:ChangeStorage(self.OriginStorageData)
         end 
+        if self.PendingStorageData then 
+            self.StorageData = self.PendingStorageData
+            self.PendingStorageData = nil
+            self:ChangeLocationWithinStorage(tileX, tileY)
+        else 
+            self:ChangeLocationWithinStorage(tileX, tileY)
+        end 
+        print(tileX, tileY)
+        print(x, y)
+        self:HoverClear(tileX,tileY)
+        
+
         self.OriginPosition = self.Item.Position
         -- print(self.OriginPosition)
     end
+
+    Events:WaitForChild("StorageEnter").Event:Connect(function(Storage, X, Y) 
+        if not self.DragFrame.Dragging then return end 
+        print(Storage.Name, X, Y, self.DragFrame.Dragging)
+        if Storage == self.StorageData.Storage  then 
+            self.PendingStorageData = nil
+            self.Item.Parent = self.StorageData.Storage
+        end 
+        if (not self.PendingStorageData and self.StorageData.Storage ~= Storage) or (self.PendingStorageData and self.PendingStorageData.Storage ~= Storage) then 
+            self.PendingStorageData = InventoryHandler.GetDataFromStorage(Storage)
+            self.Item.Parent = self.PendingStorageData.Storage
+            self.Item.Position = UDim2.fromOffset(0, 0)
+        end 
+    end)
 
     --[[ INTERACTION MENU FOR DELETING THE ITEM (DONT DELETE THE CODE) ]]--
     -- self.Item.InputBegan:Connect(function(input)
@@ -113,21 +145,26 @@ function InventoryItem:GetItemHover()
     local lastX, lastY = nil, nil
     local lastWidth = self.Item:GetAttribute("Width")
     local lastHeight = self.Item:GetAttribute("Height")
+    local lastStorageData = nil
 
     local connection = self.Item:GetPropertyChangedSignal("Position"):Connect(function()
         local width = self.Item:GetAttribute("Width")
         local height = self.Item:GetAttribute("Height")
 
+        local StorageData = self.PendingStorageData or self.StorageData
+
+        lastStorageData = lastStorageData or StorageData
         if lastX and lastY then 
             for X = lastX, lastX + lastWidth - 1 do
                 for Y = lastY, lastY + lastHeight - 1 do 
-                    self.StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = Color3.fromRGB(255,255,255)
+                    lastStorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = Color3.fromRGB(255,255,255)
                 end 
             end
         end 
 
         local x, y, valid = self:CheckValidLocation(width, height)
-        local color 
+
+        local color = nil
         if valid then 
             -- Color when item is possible to place
             color =Color3.fromRGB(44, 240, 125)
@@ -137,13 +174,17 @@ function InventoryItem:GetItemHover()
         end 
         for X = x, x + width - 1 do
             for Y = y, y + height - 1 do 
-                self.StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = color
+                StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = color
             end 
         end
+
         lastX = x
         lastY = y
+
         lastWidth = width
         lastHeight = height
+
+        lastStorageData = StorageData
     end)
     return connection
 end 
@@ -169,8 +210,9 @@ end
 function InventoryItem:GetMouseMove()
     local connection = Mouse.Move:Connect(function()
         local mousePos = UserInputService:GetMouseLocation()
-        local translatePos = self.Item.AbsolutePosition - mousePos
-        self.Item.Position = UDim2.fromOffset(translatePos.X, translatePos.Y)
+        local translatePos = mousePos - self.Item.AbsolutePosition 
+        print(translatePos)
+        self.Item.Position = UDim2.fromOffset(translatePos.X, translatePos.Y + self.Item.Parent.Parent.CanvasPosition.Y)
     end)
     return connection 
 end
@@ -178,19 +220,15 @@ end
 function InventoryItem:CheckValidLocation(width, height) 
 	local ItemPosition = self.Item.Position
 	
-    local StorageData = InventoryHandler.GetStorageFromPosition(self.Item.AbsolutePosition)
-    if self.StorageData ~= StorageData and StorageData ~= nil then
-        print(StorageData.Storage.Name)
-        -- self:ChangeStorage(StorageData)
-    end
+    local StorageData = self.PendingStorageData or self.StorageData
 
-	local MaxTilesX = #self.StorageData.Tiles
-	local MaxTilesY = #self.StorageData.Tiles[0]
+	local MaxTilesX = #StorageData.Tiles
+	local MaxTilesY = #StorageData.Tiles[0]
 
-    local tiles = self.StorageData.Tiles
+    local tiles = StorageData.Tiles
 
     local X = (ItemPosition - self.Offset).X.Offset
-    local Y = (ItemPosition - self.Offset).Y.Offset
+    local Y = (ItemPosition - self.Offset).Y.Offset + StorageData.Storage.Position.Y.Offset
 
     local translateX = math.floor(X/TileSize)
     local translateY = math.floor(Y/TileSize)
@@ -232,9 +270,10 @@ end
 function InventoryItem:HoverClear(lastX, lastY)
     local width = self.Item:GetAttribute("Width")
 	local height = self.Item:GetAttribute("Height")
+    local StorageData = self.PendingStorageData or self.StorageData
     for X = lastX, lastX + width - 1 do
         for Y = lastY, lastY + height - 1 do 
-            self.StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = Color3.fromRGB(255,255,255)
+            StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = Color3.fromRGB(255,255,255)
         end 
     end
 end 
