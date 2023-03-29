@@ -58,7 +58,8 @@ function InventoryItem:Init()
     local HoverConnection = nil
     local rotateConnection = nil
     self.DragFrame.DragStarted = function()
-        self.Item.ZIndex = 5 -- makes the item we're dragging overlap other items and ui
+        self.Item.Parent = self.Item.Parent.Parent.Parent
+        self.Item.Position = UDim2.fromOffset(self.Item.AbsolutePosition - self.StorageData.Storage.AbsolutePosition)
         -- make the tiles that the item was on claimable
         self:UnclaimCurrentTiles()
         HoverConnection = self:GetItemHover() -- for indicating which spaces are valid for our item to be placed in 
@@ -68,10 +69,18 @@ function InventoryItem:Init()
     -- lock item into a valid set of tiles
     self.DragFrame.DragEnded = function()
         -- reset the connection so the item isn't rotatable after placing it 
+        if self.PendingStorageData ~= nil then
+            local pos = self.Item.AbsolutePosition - self.PendingStorageData.Storage.AbsolutePosition 
+            self.Item.Parent = self.PendingStorageData.Storage
+            self.StorageData = self.PendingStorageData
+            print(pos)
+            self.Item.Position = UDim2.fromOffset(pos.X, pos.Y)
+        else 
+            self.Item.Parent = self.StorageData.Storage
+        end
         self.DragFrame.Dragged = nil
         rotateConnection:Disconnect()
         rotateConnection = nil
-        self.Item.ZIndex = 1
         local width = self.Item:GetAttribute("Width")
         local height = self.Item:GetAttribute("Height")
         local x, y, valid = self:CheckValidLocation(width, height)
@@ -79,40 +88,26 @@ function InventoryItem:Init()
         local tileY = valid and y or self.TileY
         if valid then
             self.CurrentOrientation = self.Item.Rotation
-            -- self:ChangeLocationWithinStorage(x, y)
         else 
+            print("here")
             self:HoverClear(x, y)
-            -- returns the item to the position it was in originally before dragging it
-            -- self:ChangeStorage(self.OriginStorageData)
-        end 
-        if self.PendingStorageData then 
-            self.StorageData = self.PendingStorageData
-            self.PendingStorageData = nil
         end 
         self:ChangeLocationWithinStorage(tileX, tileY)
         self:HoverClear(tileX,tileY)
-        
-
+        self.PendingStorageData = nil
         self.OriginPosition = self.Item.Position
-        -- print(self.OriginPosition)
     end
 
+
+    -- [[ STORAGE CHANGE EVENT ]] --
     Events:WaitForChild("StorageEnter").Event:Connect(function(Storage, X, Y) 
         if not self.DragFrame.Dragging then return end 
         if Storage == self.StorageData.Storage  then -- when the object frame hovers back to the original storage frame
-            print("first")
             self.PendingStorageData = nil
-            self.Item.Parent = self.StorageData.Storage
         end 
         -- when user hovers the frame onto another storage frame
         if (not self.PendingStorageData and self.StorageData.Storage ~= Storage) or (self.PendingStorageData and self.PendingStorageData.Storage ~= Storage) then 
-            print("second")
             self.PendingStorageData = InventoryHandler.GetDataFromStorage(Storage)
-            local pos = self.Item.AbsolutePosition - self.PendingStorageData.Storage.AbsolutePosition
-            self.Item.Position = UDim2.new(0, pos.X, 0, pos.Y) 
-            self.Item.Parent = self.PendingStorageData.Storage
-            -- self.DragFrame.ChangePosition(UDim2.new(0, pos.X, 0, pos.Y) )
-            -- self.DragFrame:Disable()
         end 
     end)
 
@@ -195,8 +190,15 @@ function InventoryItem:CheckValidLocation(width, height)
 
     local tiles = StorageData.Tiles
 
-    local X = (ItemPosition - self.Offset).X.Offset
-    local Y = (ItemPosition - self.Offset).Y.Offset
+    local delta = StorageData.Storage.AbsolutePosition - StorageData.Storage.Parent.Parent.AbsolutePosition
+    local pos = ItemPosition - self.Offset - UDim2.fromOffset(delta.X, delta.Y)
+
+    if self.PendingStorageData and not self.DragFrame.Dragging then 
+        pos = ItemPosition - self.Offset 
+    end
+
+    local X = pos.X.Offset
+    local Y = pos.Y.Offset
 
     local translateX = math.floor(X/TileSize)
     local translateY = math.floor(Y/TileSize)
@@ -226,7 +228,9 @@ function InventoryItem:ChangeLocationWithinStorage(tileX, tileY)
 	local height = self.Item:GetAttribute("Height")
     self.TileX = tileX
     self.TileY = tileY
-    self.StorageData.ClaimTiles(tileX, tileY, width, height, self.Item)
+    local StorageData = self.PendingStorageData or self.StorageData
+    StorageData.ClaimTiles(tileX, tileY, width, height, self.Item)
+    print(tileX, tileY)
     self.Item.Position = UDim2.new(0, tileX * TileSize, 0, tileY * TileSize) + self.Offset
     if self.Item.Rotation ~= self.CurrentOrientation then
         self.Item.Rotation = self.OriginOrientation
