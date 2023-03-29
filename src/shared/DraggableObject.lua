@@ -24,17 +24,16 @@ function DraggableObject:Enable()
 	local dragStart			= nil
 	local startPos			= nil
 	local preparingToDrag	= false
-	local lastPos           = nil
-	local offset            = self.Offset or Vector2.new(0,0)
 	
 	-- Updates the element
 	local function update(input)
 		local delta 		= input.Position - dragStart
 		local CanvasPositionOffset = self.Object.Parent.Parent.CanvasPosition.Y or 0
-		local newPosition	= UDim2_new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y + CanvasPositionOffset) + UDim2.fromOffset(offset.X, offset.Y)
-		lastPos = object.AbsolutePosition
+		local newPosition	= UDim2_new(0, startPos.X.Offset + delta.X, 0, startPos.Y.Offset + delta.Y)-- + CanvasPositionOffset)  --+ UDim2.fromOffset(offset.X, offset.Y)
 		object.Position 	= newPosition
 	
+		print(startPos)
+
 		return newPosition
 	end
 	
@@ -99,14 +98,9 @@ function DraggableObject:Enable()
 		end
 	end)
 
-	self.ObjectPosChange = object:GetPropertyChangedSignal("Parent"):Connect(function() 
-		local ObjectFrame = object.Parent 
-		local Offset = lastPos - ObjectFrame.AbsolutePosition
-		-- Offset = Vector2.new(-50, -50)
-		object.Position = UDim2_new(0, 50, 0, 50)
-		self.Offset = Offset
-		lastPos = object.Position
-	end)
+	self.ChangePosition = function(Pos) 
+		startPos = Pos
+	end
 end
 
 -- Disables dragging

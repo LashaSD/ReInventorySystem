@@ -57,25 +57,20 @@ function InventoryItem:Init()
 
     local HoverConnection = nil
     local rotateConnection = nil
-    local mouseConnection = nil
     self.DragFrame.DragStarted = function()
         self.Item.ZIndex = 5 -- makes the item we're dragging overlap other items and ui
         -- make the tiles that the item was on claimable
         self:UnclaimCurrentTiles()
         HoverConnection = self:GetItemHover() -- for indicating which spaces are valid for our item to be placed in 
         rotateConnection = self:GetRotate() -- rotating the part when player hits "R" on keyboard
-        -- mouseConnection = self:GetMouseMove() -- locks the items position to the mouse
     end 
 
     -- lock item into a valid set of tiles
     self.DragFrame.DragEnded = function()
         -- reset the connection so the item isn't rotatable after placing it 
-        HoverConnection:Disconnect()
-        HoverConnection = nil
+        self.DragFrame.Dragged = nil
         rotateConnection:Disconnect()
         rotateConnection = nil
-        -- mouseConnection:Disconnect()
-        mouseConnection = nil
         self.Item.ZIndex = 1
         local width = self.Item:GetAttribute("Width")
         local height = self.Item:GetAttribute("Height")
@@ -93,12 +88,8 @@ function InventoryItem:Init()
         if self.PendingStorageData then 
             self.StorageData = self.PendingStorageData
             self.PendingStorageData = nil
-            self:ChangeLocationWithinStorage(tileX, tileY)
-        else 
-            self:ChangeLocationWithinStorage(tileX, tileY)
         end 
-        print(tileX, tileY)
-        print(x, y)
+        self:ChangeLocationWithinStorage(tileX, tileY)
         self:HoverClear(tileX,tileY)
         
 
@@ -108,34 +99,22 @@ function InventoryItem:Init()
 
     Events:WaitForChild("StorageEnter").Event:Connect(function(Storage, X, Y) 
         if not self.DragFrame.Dragging then return end 
-        print(Storage.Name, X, Y, self.DragFrame.Dragging)
-        if Storage == self.StorageData.Storage  then 
+        if Storage == self.StorageData.Storage  then -- when the object frame hovers back to the original storage frame
+            print("first")
             self.PendingStorageData = nil
             self.Item.Parent = self.StorageData.Storage
         end 
+        -- when user hovers the frame onto another storage frame
         if (not self.PendingStorageData and self.StorageData.Storage ~= Storage) or (self.PendingStorageData and self.PendingStorageData.Storage ~= Storage) then 
+            print("second")
             self.PendingStorageData = InventoryHandler.GetDataFromStorage(Storage)
+            local pos = self.Item.AbsolutePosition - self.PendingStorageData.Storage.AbsolutePosition
+            self.Item.Position = UDim2.new(0, pos.X, 0, pos.Y) 
             self.Item.Parent = self.PendingStorageData.Storage
-            self.Item.Position = UDim2.fromOffset(0, 0)
+            -- self.DragFrame.ChangePosition(UDim2.new(0, pos.X, 0, pos.Y) )
+            -- self.DragFrame:Disable()
         end 
     end)
-
-    --[[ INTERACTION MENU FOR DELETING THE ITEM (DONT DELETE THE CODE) ]]--
-    -- self.Item.InputBegan:Connect(function(input)
-    --     if input.UserInputType == Enum.UserInputType.MouseButton2 then
-    --         if self.Item:FindFirstChild("InteractionMenu") then
-    --             self.Item.InteractionMenu:Destroy()
-    --             self.Item.ZIndex = 3
-    --         else
-    --             self.Item.ZIndex = 1
-    --             local UiFrame = Instance.new("Frame")
-    --             UiFrame.Name = "InteractionMenu"
-    --             UiFrame.Position = UDim2.fromScale(1,0)
-    --             UiFrame.Size = UDim2.new(0,TileSize, 0, 2*TileSize)
-    --             UiFrame.Parent = self.Item
-    --         end
-    --     end
-    -- end)
 
     return self
 end
@@ -147,7 +126,7 @@ function InventoryItem:GetItemHover()
     local lastHeight = self.Item:GetAttribute("Height")
     local lastStorageData = nil
 
-    local connection = self.Item:GetPropertyChangedSignal("Position"):Connect(function()
+    self.DragFrame.Dragged = function()
         local width = self.Item:GetAttribute("Width")
         local height = self.Item:GetAttribute("Height")
 
@@ -185,8 +164,7 @@ function InventoryItem:GetItemHover()
         lastHeight = height
 
         lastStorageData = StorageData
-    end)
-    return connection
+    end
 end 
 
 function InventoryItem:GetRotate()
@@ -207,16 +185,6 @@ function InventoryItem:GetRotate()
     return connection 
 end 
 
-function InventoryItem:GetMouseMove()
-    local connection = Mouse.Move:Connect(function()
-        local mousePos = UserInputService:GetMouseLocation()
-        local translatePos = mousePos - self.Item.AbsolutePosition 
-        print(translatePos)
-        self.Item.Position = UDim2.fromOffset(translatePos.X, translatePos.Y + self.Item.Parent.Parent.CanvasPosition.Y)
-    end)
-    return connection 
-end
-
 function InventoryItem:CheckValidLocation(width, height) 
 	local ItemPosition = self.Item.Position
 	
@@ -228,7 +196,7 @@ function InventoryItem:CheckValidLocation(width, height)
     local tiles = StorageData.Tiles
 
     local X = (ItemPosition - self.Offset).X.Offset
-    local Y = (ItemPosition - self.Offset).Y.Offset + StorageData.Storage.Position.Y.Offset
+    local Y = (ItemPosition - self.Offset).Y.Offset
 
     local translateX = math.floor(X/TileSize)
     local translateY = math.floor(Y/TileSize)
