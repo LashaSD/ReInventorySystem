@@ -27,9 +27,8 @@ function DraggableObject:Enable()
 	-- Updates the element
 	local function update(input)
 		local delta 		= Vector2.new(input.Position.X, input.Position.Y) - object.AbsolutePosition - object.AbsoluteSize/2
-		local CanvasPositionOffset = self.Object.Parent.CanvasPosition.Y or 0
 
-		local newPosition	= UDim2_new(0, object.Position.X.Offset + delta.X, 0, object.Position.Y.Offset + delta.Y + CanvasPositionOffset)  --+ UDim2.fromOffset(offset.X, offset.Y)
+		local newPosition	= UDim2_new(0, object.Position.X.Offset + delta.X, 0, object.Position.Y.Offset + delta.Y) 
 		object.Position 	= newPosition
 
 		return newPosition

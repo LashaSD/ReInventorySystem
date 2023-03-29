@@ -190,8 +190,10 @@ function InventoryItem:CheckValidLocation(width, height)
 
     local tiles = StorageData.Tiles
 
-    local delta = StorageData.Storage.AbsolutePosition - StorageData.Storage.Parent.Parent.AbsolutePosition
-    local pos = ItemPosition - self.Offset - UDim2.fromOffset(delta.X, delta.Y)
+    local YOffset = StorageData.Storage.Parent.Parent.CanvasPosition.Y
+
+    local delta = StorageData.Storage.AbsolutePosition - StorageData.Storage.Parent.Parent.AbsolutePosition 
+    local pos = ItemPosition - self.Offset - UDim2.fromOffset(delta.X, delta.Y + YOffset)
 
     if self.PendingStorageData and not self.DragFrame.Dragging then 
         pos = ItemPosition - self.Offset 
@@ -230,7 +232,6 @@ function InventoryItem:ChangeLocationWithinStorage(tileX, tileY)
     self.TileY = tileY
     local StorageData = self.PendingStorageData or self.StorageData
     StorageData.ClaimTiles(tileX, tileY, width, height, self.Item)
-    print(tileX, tileY)
     self.Item.Position = UDim2.new(0, tileX * TileSize, 0, tileY * TileSize) + self.Offset
     if self.Item.Rotation ~= self.CurrentOrientation then
         self.Item.Rotation = self.OriginOrientation
