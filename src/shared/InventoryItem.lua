@@ -32,6 +32,7 @@ function InventoryItem.new(Item, Storage, tileX, tileY)
     self.CurrentOrientation = self.Item.Rotation
 
     self.PendingStorage = nil
+    self.OriginStorage = self.StorageData
 	return self
 end
 
@@ -49,6 +50,7 @@ function InventoryItem:Init()
     ToDo: 
         Find free space automatically to place items in, without given tile coords
     ]]--
+
 	self:ChangeLocationWithinStorage(self.TileX, self.TileY)
     self.OriginPosition = self.Item.Position
 
@@ -68,16 +70,14 @@ function InventoryItem:Init()
 
     -- lock item into a valid set of tiles
     self.DragFrame.DragEnded = function()
-        -- reset the connection so the item isn't rotatable after placing it 
         if self.PendingStorageData ~= nil then
             local pos = self.Item.AbsolutePosition - self.PendingStorageData.Storage.AbsolutePosition 
             self.Item.Parent = self.PendingStorageData.Storage
-            self.StorageData = self.PendingStorageData
-            print(pos)
             self.Item.Position = UDim2.fromOffset(pos.X, pos.Y)
         else 
             self.Item.Parent = self.StorageData.Storage
         end
+        -- reset the connection so the item isn't rotatable after placing it 
         self.DragFrame.Dragged = nil
         rotateConnection:Disconnect()
         rotateConnection = nil
@@ -89,12 +89,18 @@ function InventoryItem:Init()
         if valid then
             self.CurrentOrientation = self.Item.Rotation
         else 
-            print("here")
             self:HoverClear(x, y)
+            if self.PendingStorageData ~= self.StorageData then 
+                self.Item.Parent = self.StorageData.Storage 
+                self.PendingStorageData = nil
+            end 
         end 
         self:ChangeLocationWithinStorage(tileX, tileY)
         self:HoverClear(tileX,tileY)
-        self.PendingStorageData = nil
+        if self.PendingStorageData then
+            self.StorageData = self.PendingStorageData
+            self.PendingStorageData = nil
+        end
         self.OriginPosition = self.Item.Position
     end
 
@@ -249,14 +255,6 @@ function InventoryItem:HoverClear(lastX, lastY)
             StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = Color3.fromRGB(255,255,255)
         end 
     end
-end 
-
-function InventoryItem:ChangeStorage(StorageData)
-    self.StorageData = StorageData
-    local ItemPos = self.Item.AbsolutePosition
-    self.Item.Parent = StorageData.Storage
-    -- self.Item.Position = UDim2.fromOffset(self.Item.AbsolutePosition - self.Item.Parent.AbsolutePosition)
-    -- print(self.Item.Position)
 end 
 
 function InventoryItem:UnclaimCurrentTiles()

@@ -21,7 +21,6 @@ end
 function DraggableObject:Enable()
 	local object			= self.Object
 	local dragInput			= nil
-	local startPos			= nil
 	local preparingToDrag	= false
 	
 	-- Updates the element
@@ -37,15 +36,7 @@ function DraggableObject:Enable()
 	self.InputBegan = object.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			preparingToDrag = true
-			--[[if self.DragStarted then
-				self.DragStarted()
-			end
-			
-			dragging	 	= true
-			dragStart 		= input.Position
-			startPos 		= Element.Position
-			--]]
-			
+
 			local connection 
 			connection = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End and (self.Dragging or preparingToDrag) then
@@ -92,10 +83,6 @@ function DraggableObject:Enable()
 			end
 		end
 	end)
-
-	self.ChangePosition = function(Pos) 
-		startPos = Pos
-	end
 end
 
 -- Disables dragging
