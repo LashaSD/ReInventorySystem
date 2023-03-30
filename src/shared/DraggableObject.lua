@@ -21,31 +21,22 @@ end
 function DraggableObject:Enable()
 	local object			= self.Object
 	local dragInput			= nil
-	local dragStart			= nil
-	local startPos			= nil
 	local preparingToDrag	= false
 	
 	-- Updates the element
 	local function update(input)
-		local delta 		= input.Position - dragStart
-		local newPosition	= UDim2_new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		local delta 		= Vector2.new(input.Position.X, input.Position.Y) - object.AbsolutePosition - object.AbsoluteSize/2
+
+		local newPosition	= UDim2_new(0, object.Position.X.Offset + delta.X, 0, object.Position.Y.Offset + delta.Y) 
 		object.Position 	= newPosition
-	
+
 		return newPosition
 	end
 	
 	self.InputBegan = object.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			preparingToDrag = true
-			--[[if self.DragStarted then
-				self.DragStarted()
-			end
-			
-			dragging	 	= true
-			dragStart 		= input.Position
-			startPos 		= Element.Position
-			--]]
-			
+
 			local connection 
 			connection = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End and (self.Dragging or preparingToDrag) then
@@ -82,8 +73,6 @@ function DraggableObject:Enable()
 			end
 			
 			self.Dragging	= true
-			dragStart 		= input.Position
-			startPos 		= object.Position
 		end
 		
 		if input == dragInput and self.Dragging then

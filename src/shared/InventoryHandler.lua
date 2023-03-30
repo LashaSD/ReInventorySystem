@@ -10,6 +10,17 @@ local TileSize -- Both Width and height since tiles are just squares
     Generate inventory with the given Width and Height (in tiles)
 ]]--
 
+function InventoryHandler.GetStorageFromPosition(Pos)
+	for i = 0, #Storages, 1 do 
+		local storage = Storages[i].Storage
+		local XFit = storage.AbsolutePosition.X < Pos.X and storage.AbsolutePosition.X + storage.AbsoluteSize.X > Pos.X -- item fits into the inventory on the X axis
+		local YFit = storage.AbsolutePosition.Y > Pos.Y and storage.AbsolutePosition.Y + storage.AbsoluteSize.Y < Pos.Y -- item fits into the inventory on the Y axis
+		if XFit and YFit then 
+			return Storages[i]
+		end
+	end
+end 
+
 function InventoryHandler.GetDataFromStorage(Storage)
 	for i = 0, #Storages, 1 do 
 		local CurrentStorageData = Storages[i]
@@ -19,19 +30,26 @@ function InventoryHandler.GetDataFromStorage(Storage)
 	end
 end
 
-function InventoryHandler.GenerateInventory(Parent, Width, Height)
-    local Tile = script:WaitForChild("Tile")
-	local Storage = script:WaitForChild("Storage"):Clone()
+function InventoryHandler.GenerateInventory(Parent, Width, Height, Name)
+    local Tile = script.Parent:WaitForChild("Tile")
+	local Storage = script.Parent:WaitForChild("Storage"):Clone()
 	TileSize = Tile.Size.X.Offset
+
+	local Name = Name or "Storage"
 
 	Storage.Size = UDim2.new(0, TileSize * Width, 0, TileSize * Height)
     Storage.Parent = Parent
+	Storage.Name = Name
 	
+	local OnNewStorage = Instance.new("BindableEvent")
+
 	local data = {}
 	data.Storage = Storage
 	data.Tiles = {}
+	data.OnStorageHover = OnNewStorage 
 	
 	Storages[StorageIndex] = data
+	StorageIndex = StorageIndex + 1
 	
 	for x = 0, Width-1 do
 		local YTable = {}
@@ -47,7 +65,7 @@ function InventoryHandler.GenerateInventory(Parent, Width, Height)
 			}
 		end
 	end
-	
+
 	data.ClaimTile = function(TileX, TileY, Owner)
 		data.Tiles[TileX][TileY]["Claimed"] = true
 		data.Tiles[TileX][TileY]["Owner"] = Owner
@@ -73,6 +91,10 @@ function InventoryHandler.GenerateInventory(Parent, Width, Height)
 			end
 		end
 	end
+
+	Storage.MouseEnter:Connect(function()
+		OnNewStorage:Fire(data)
+	end)
 
     return data;
 end 
