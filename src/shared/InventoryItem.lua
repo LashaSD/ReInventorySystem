@@ -32,7 +32,6 @@ function InventoryItem.new(Item, Storage, tileX, tileY)
     self.CurrentOrientation = self.Item.Rotation
 
     self.PendingStorage = nil
-    self.OriginStorage = self.StorageData
 	return self
 end
 
@@ -90,10 +89,24 @@ function InventoryItem:Init()
             self.CurrentOrientation = self.Item.Rotation
         else 
             self:HoverClear(x, y)
+
+            -- Origin Storage Reset
             if self.PendingStorageData ~= self.StorageData then 
                 self.Item.Parent = self.StorageData.Storage 
                 self.PendingStorageData = nil
             end 
+
+            -- Origin Orientation
+            if self.Item.Rotation ~= self.CurrentOrientation then
+                self.Item:SetAttribute("Width", height)
+                self.Item:SetAttribute("Height", width)
+            end
+            if self.CurrentOrientation % 180 ~= 0 and width ~= height then 
+                self.Offset = UDim2.fromOffset(TileSize/2, -TileSize/2)
+            elseif width ~= height then
+                self.Offset = UDim2.fromOffset(0,0)
+            end 
+            self.Item.Rotation = self.CurrentOrientation
         end 
         self:ChangeLocationWithinStorage(tileX, tileY)
         self:HoverClear(tileX,tileY)
