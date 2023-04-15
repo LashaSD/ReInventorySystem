@@ -6,6 +6,8 @@ local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
 local InventoryHandler = require(script.Parent.InventoryHandler)
 
 local DragabbleItem = require(script.Parent:WaitForChild("DraggableObject"))
+
+-- Directory Paths 
 local Events = script.Parent.Events
 
 local TileSize 
@@ -13,7 +15,7 @@ local TileSize
 local InventoryItem = {}
 InventoryItem.__index = InventoryItem
 
-function InventoryItem.new(Item, Storage, tileX, tileY)
+function InventoryItem.new(Item, Storage, tileX, tileY, Type)
 	local self = setmetatable({}, InventoryItem)
 
 	self.TileX = tileX or nil
@@ -22,6 +24,10 @@ function InventoryItem.new(Item, Storage, tileX, tileY)
 	self.Item = Item
 
     self.StorageData = InventoryHandler.GetDataFromStorage(Storage)
+
+    self.Type = Type or nil
+    self.Equipped = Type and false or nil
+    self.Item.Name = Type or self.Item.Name
 
     self.DragFrame = DragabbleItem.new(Item)
     self.Offset = UDim2.fromOffset(0,0)
@@ -36,7 +42,8 @@ function InventoryItem.new(Item, Storage, tileX, tileY)
 end
 
 function InventoryItem:Init()
-    TileSize = self.StorageData.Tiles[0][0]["TileFrame"].Size.X.Offset
+    -- TileSize = self.StorageData.Tiles[0][0]["TileFrame"].Size.X.Offset
+    TileSize = 30
 
 	local width = self.Item:GetAttribute("Width")
 	local height = self.Item:GetAttribute("Height")
@@ -60,10 +67,11 @@ function InventoryItem:Init()
     local rotateConnection = nil
     self.DragFrame.DragStarted = function()
         self.Item.Parent = self.Item.Parent.Parent.Parent
+        if self.StorageData.Type then self.Item.Parent = self.Item.Parent.Parent end  
         self.Item.Position = UDim2.fromOffset(self.Item.AbsolutePosition - self.StorageData.Storage.AbsolutePosition)
         -- make the tiles that the item was on claimable
         self:UnclaimCurrentTiles()
-        HoverConnection = self:GetItemHover() -- for indicating which spaces are valid for our item to be placed in 
+        --HoverConnection = self:GetItemHover() -- for indicating which spaces are valid for our item to be placed in 
         rotateConnection = self:GetRotate() -- rotating the part when player hits "R" on keyboard
     end 
 
@@ -80,15 +88,31 @@ function InventoryItem:Init()
         self.DragFrame.Dragged = nil
         rotateConnection:Disconnect()
         rotateConnection = nil
-        local width = self.Item:GetAttribute("Width")
-        local height = self.Item:GetAttribute("Height")
+        -- we redefine width and height because it might change when rotating the item
+        width = self.Item:GetAttribute("Width")
+        height = self.Item:GetAttribute("Height")
         local x, y, valid = self:CheckValidLocation(width, height)
         local tileX = valid and x or self.TileX
         local tileY = valid and y or self.TileY
         if valid then
             self.CurrentOrientation = self.Item.Rotation
+            -- Interaction Component Handler 
+            if self.Type then
+                local BaseComp = require(script.Parent:FindFirstChild("Component"))
+                if self.PendingStorageData and self.PendingStorageData.Type then
+                    if not self.Equipped then
+                        self.Equipped = true
+                        BaseComp.Equipped(self.Type, self.Item)
+                    end
+                elseif self.PendingStorageData and not self.PendingStorageData.Type then
+                    if self.Equipped then
+                        self.Equipped = false
+                        BaseComp.Unequipped(self.Type, self.Item)
+                    end
+                end
+            end
         else 
-            self:HoverClear(x, y)
+            -- self:HoverClear(x, y)
 
             -- Origin Storage Reset
             if self.PendingStorageData ~= self.StorageData then 
@@ -109,7 +133,7 @@ function InventoryItem:Init()
             self.Item.Rotation = self.CurrentOrientation
         end 
         self:ChangeLocationWithinStorage(tileX, tileY)
-        self:HoverClear(tileX,tileY)
+        -- self:HoverClear(tileX,tileY)
         if self.PendingStorageData then
             self.StorageData = self.PendingStorageData
             self.PendingStorageData = nil
@@ -121,11 +145,14 @@ function InventoryItem:Init()
     -- [[ STORAGE CHANGE EVENT ]] --
     Events:WaitForChild("StorageEnter").Event:Connect(function(Storage, X, Y) 
         if not self.DragFrame.Dragging then return end 
-        if Storage == self.StorageData.Storage  then -- when the object frame hovers back to the original storage frame
+        -- when the object frame hovers back to the original storage frame
+        if Storage == self.StorageData.Storage  then 
+            -- print("ORIGINAL")
             self.PendingStorageData = nil
         end 
         -- when user hovers the frame onto another storage frame
         if (not self.PendingStorageData and self.StorageData.Storage ~= Storage) or (self.PendingStorageData and self.PendingStorageData.Storage ~= Storage) then 
+            -- print("ANOTHER ONE")
             self.PendingStorageData = InventoryHandler.GetDataFromStorage(Storage)
         end 
     end)
@@ -134,7 +161,6 @@ function InventoryItem:Init()
 end
 
 function InventoryItem:GetItemHover()
-
     local lastX, lastY = nil, nil
     local lastWidth = self.Item:GetAttribute("Width")
     local lastHeight = self.Item:GetAttribute("Height")
@@ -150,24 +176,24 @@ function InventoryItem:GetItemHover()
         if lastX and lastY then 
             for X = lastX, lastX + lastWidth - 1 do
                 for Y = lastY, lastY + lastHeight - 1 do 
-                    lastStorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = Color3.fromRGB(255,255,255)
+                    lastStorageData.Tiles[X][Y]["TileFrame"].BackgroundTransparency = 0
                 end 
             end
         end 
 
         local x, y, valid = self:CheckValidLocation(width, height)
+        if x == -1 or y == -1 then
+            return nil
+        end
 
-        local color = nil
-        if valid then 
-            -- Color when item is possible to place
-            color =Color3.fromRGB(44, 240, 125)
-        else 
+        local transparency = 0
+        if not valid then 
             -- Color when item is impossible to palce 
-            color =Color3.fromRGB(215, 43, 43)
+            transparency = 0.5;
         end 
         for X = x, x + width - 1 do
             for Y = y, y + height - 1 do 
-                StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = color
+                StorageData.Tiles[X][Y]["TileFrame"].BackgroundTransparency = 0.5
             end 
         end
 
@@ -190,7 +216,7 @@ function InventoryItem:GetRotate()
             self.Item:SetAttribute("Width", height)
             self.Item.Rotation = self.Item.Rotation + 90
             if self.Item.Rotation % 180 ~= 0 and width ~= height then 
-                self.Offset = UDim2.fromOffset(TileSize/2, -TileSize/2)
+                self.Offset = UDim2.fromOffset((height - width)/2 * TileSize, (width-height)/2 * TileSize) -- height - width because we switched them on the previous lines
             else 
                 self.Offset = UDim2.fromOffset(0,0)
             end 
@@ -207,9 +233,19 @@ function InventoryItem:CheckValidLocation(width, height)
 	local MaxTilesX = #StorageData.Tiles
 	local MaxTilesY = #StorageData.Tiles[0]
 
+    if tonumber(width) > tonumber(MaxTilesX)+1 or tonumber(height) > tonumber(MaxTilesY)+1 then 
+        return -1,-1, false
+    end 
+
     local tiles = StorageData.Tiles
 
-    local YOffset = StorageData.Storage.Parent.Parent.CanvasPosition.Y
+    local YOffset = 0
+    local success, _ = pcall(function() 
+        return StorageData.Storage.Parent.CanvasPosition
+    end)
+    if success then 
+        YOffset = StorageData.Storage.Parent.CanvasPosition.Y
+    end 
 
     local delta = StorageData.Storage.AbsolutePosition - StorageData.Storage.Parent.Parent.AbsolutePosition 
     local pos = ItemPosition - self.Offset - UDim2.fromOffset(delta.X, delta.Y + YOffset)
@@ -218,11 +254,11 @@ function InventoryItem:CheckValidLocation(width, height)
         pos = ItemPosition - self.Offset 
     end
 
-    local X = pos.X.Offset
-    local Y = pos.Y.Offset
+    local x = pos.X.Offset
+    local y = pos.Y.Offset
 
-    local translateX = math.floor(X/TileSize)
-    local translateY = math.floor(Y/TileSize)
+    local translateX = math.floor(x/TileSize)
+    local translateY = math.floor(y/TileSize)
 
     if translateX > MaxTilesX - width then translateX = (MaxTilesX - width) + 1 end
 
@@ -241,6 +277,13 @@ function InventoryItem:CheckValidLocation(width, height)
         end
     end
 
+    if StorageData.Type then
+        -- print(StorageData.Type, self.Type)
+        if StorageData.Type ~= self.Type then
+            return -1, -1, false
+        end
+    end
+
     return translateX, translateY, valid
 end
 
@@ -250,13 +293,20 @@ function InventoryItem:ChangeLocationWithinStorage(tileX, tileY)
     self.TileX = tileX
     self.TileY = tileY
     local StorageData = self.PendingStorageData or self.StorageData
+    -- local ItemData = {}
+    -- ItemData.Width = width
+    -- ItemData.Height = height
+    -- ItemData.X = self.TileX
+    -- ItemData.Y = self.TileY
+    -- ItemData.Frame = self.Item
+    -- InventoryHandler.AddItem(StorageData, ItemData)
     StorageData.ClaimTiles(tileX, tileY, width, height, self.Item)
     self.Item.Position = UDim2.new(0, tileX * TileSize, 0, tileY * TileSize) + self.Offset
     if self.Item.Rotation ~= self.CurrentOrientation then
         self.Item.Rotation = self.OriginOrientation
         self.CurrentOrientation = self.Item.Rotation
     end
-    self:HoverClear(tileX, tileY)
+    -- self:HoverClear(tileX, tileY)
 end
 
 function InventoryItem:HoverClear(lastX, lastY)
@@ -265,7 +315,7 @@ function InventoryItem:HoverClear(lastX, lastY)
     local StorageData = self.PendingStorageData or self.StorageData
     for X = lastX, lastX + width - 1 do
         for Y = lastY, lastY + height - 1 do 
-            StorageData.Tiles[X][Y]["TileFrame"].BackgroundColor3 = Color3.fromRGB(255,255,255)
+            StorageData.Tiles[X][Y]["TileFrame"].BackgroundTransparency = 0
         end 
     end
 end 
