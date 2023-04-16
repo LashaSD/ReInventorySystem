@@ -23,11 +23,10 @@ function InventoryItem.new(Item, Storage, tileX, tileY, Type)
 
 	self.Item = Item
 
-    self.StorageData = InventoryHandler.GetDataFromStorage(Storage)
+    self.StorageData = Storage
 
     self.Type = Type or nil
     self.Equipped = Type and false or nil
-    self.Item.Name = Type or self.Item.Name
 
     self.DragFrame = DragabbleItem.new(Item)
     self.Offset = UDim2.fromOffset(0,0)
@@ -38,6 +37,7 @@ function InventoryItem.new(Item, Storage, tileX, tileY, Type)
     self.CurrentOrientation = self.Item.Rotation
 
     self.PendingStorage = nil
+
 	return self
 end
 
@@ -47,6 +47,9 @@ function InventoryItem:Init()
 
 	local width = self.Item:GetAttribute("Width")
 	local height = self.Item:GetAttribute("Height")
+
+    -- Inserting The Item into the Players Inventory
+    table.insert(self.StorageData.ParentInventory.Items, self.Item)
 
     self.Item.Parent = self.StorageData.Storage
     self.Item.Size = UDim2.new(0, TileSize * width, 0, TileSize * height)
@@ -71,14 +74,14 @@ function InventoryItem:Init()
         self.Item.Position = UDim2.fromOffset(self.Item.AbsolutePosition - self.StorageData.Storage.AbsolutePosition)
         -- make the tiles that the item was on claimable
         self:UnclaimCurrentTiles()
-        --HoverConnection = self:GetItemHover() -- for indicating which spaces are valid for our item to be placed in 
+        -- HoverConnection = self:GetItemHover() -- for indicating which spaces are valid for our item to be placed in 
         rotateConnection = self:GetRotate() -- rotating the part when player hits "R" on keyboard
     end 
 
     -- lock item into a valid set of tiles
     self.DragFrame.DragEnded = function()
-    
-        if self.PendingStorageData ~= nil then
+        if self.PendingStorageData then
+            -- translates the relative position to the pending storage
             local pos = self.Item.AbsolutePosition - self.PendingStorageData.Storage.AbsolutePosition 
             self.Item.Parent = self.PendingStorageData.Storage
             self.Item.Position = UDim2.fromOffset(pos.X, pos.Y)
@@ -156,10 +159,10 @@ function InventoryItem:Init()
             -- print("ORIGINAL")
             self.PendingStorageData = nil
         end 
-        -- when user hovers the frame onto another storage frame
+        -- when the object frame hovers on another storage frame
         if (not self.PendingStorageData and self.StorageData.Storage ~= Storage) or (self.PendingStorageData and self.PendingStorageData.Storage ~= Storage) then 
             -- print("ANOTHER ONE")
-            self.PendingStorageData = InventoryHandler.GetDataFromStorage(Storage)
+            self.PendingStorageData = self.StorageData.ParentInventory:GetDataFromStorage(Storage)
         end 
     end)
 
@@ -284,7 +287,6 @@ function InventoryItem:CheckValidLocation(width, height)
     end
 
     if StorageData.Type then
-        -- print(StorageData.Type, self.Type)
         if StorageData.Type ~= self.Type then
             return -1, -1, false
         end
