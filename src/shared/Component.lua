@@ -5,7 +5,7 @@ local Component = {}
 local ClothingFunction = {
     function()
         -- Equip
-        print("Put On Clothing")
+        print("Put On Clothing TEST")
     end,
     function()
         -- Unequip
@@ -35,24 +35,49 @@ local Actions = {
 
 function Component.Equipped(Type, Item) 
     if Actions[Type] then 
-        Actions[Type][1](Item)
+        Actions[Type][1](Type)
     end 
 
-    local Comp= require(Components:FindFirstChild(Item.Name))
+    local Directory = Components:FindFirstChild(Item.Name)
+    if not Directory then return end
+
+    print(Directory)
+    local Comp= require(Directory)
     if Comp then
         Comp.Equipped()
         print('\n')
     end
 end 
 
+
+
 function Component.Unequipped(Type, Item) 
     if Actions[Type] then Actions[Type][2](Item) end 
 
-    local Comp= require(Components:FindFirstChild(Item.Name))
+    local Directory = Components:FindFirstChild(Item.Name)
+    if not Directory then return end
+
+    local Comp= require(Directory)
     if Comp then
         Comp.Unequipped()
         print('\n')
     end
 end 
 
+
+
 return Component 
+
+
+
+
+
+
+
+
+
+
+
+
+
+

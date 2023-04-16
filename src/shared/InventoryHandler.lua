@@ -102,7 +102,14 @@ function InventoryHandler.GenerateStorageData(Width, Height)
 	return data
 end
 
-
+function InventoryHandler.GenerateInventory()
+	local InventoryData = {}
+	local storages = {}
+	local ItemList = {}
+	InventoryData.Storages = storages
+	InventoryData.ItemList = ItemList
+	return InventoryData
+end 
 
 return InventoryHandler
 

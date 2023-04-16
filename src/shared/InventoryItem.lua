@@ -77,6 +77,7 @@ function InventoryItem:Init()
 
     -- lock item into a valid set of tiles
     self.DragFrame.DragEnded = function()
+    
         if self.PendingStorageData ~= nil then
             local pos = self.Item.AbsolutePosition - self.PendingStorageData.Storage.AbsolutePosition 
             self.Item.Parent = self.PendingStorageData.Storage
@@ -84,16 +85,21 @@ function InventoryItem:Init()
         else 
             self.Item.Parent = self.StorageData.Storage
         end
+
         -- reset the connection so the item isn't rotatable after placing it 
+        
         self.DragFrame.Dragged = nil
         rotateConnection:Disconnect()
         rotateConnection = nil
+
         -- we redefine width and height because it might change when rotating the item
         width = self.Item:GetAttribute("Width")
         height = self.Item:GetAttribute("Height")
         local x, y, valid = self:CheckValidLocation(width, height)
+
         local tileX = valid and x or self.TileX
         local tileY = valid and y or self.TileY
+
         if valid then
             self.CurrentOrientation = self.Item.Rotation
             -- Interaction Component Handler 
