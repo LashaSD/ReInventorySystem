@@ -1,50 +1,61 @@
-local Storages = {}
+local Inventory = {}
+Inventory.__index = Inventory 
 
-local StorageIndex = 0
+function Inventory.new()
+	local self = setmetatable({}, Inventory)
+	self.Storages = {}
+	self.StorageQueue = {}
+	self.Items = {}
+	self.TileSize = nil
 
-local InventoryHandler = {}
+	return self
+end 
 
-local TileSize -- Both Width and height since tiles are just squares
+function Inventory:GenerateStoragesQueue()
+	local InventoryUi = game.Players.LocalPlayer.PlayerGui.Inventory.MainFrame.GridMainFrame
+	for _,Data in ipairs(self.StorageQueue) do 
+		local FrameDir = Data.Type and InventoryUi.a or InventoryUi.b
+		local Frame = Data.Type and FrameDir:FindFirstChild(Data.Type) or FrameDir 
+		print(Frame)
+		if Frame then
+			self:GenerateStorage(Data, Frame)
+			print("Looping through")
+		end 
+	end 
+end 	
 
---[[
-    Generate inventory with the given Width and Height (in tiles)
-]]--
-
-function InventoryHandler.GetDataFromStorage(Storage)
-	for i = 0, #Storages, 1 do
-		local CurrentStorageData = Storages[i]
-		if CurrentStorageData.Storage == Storage then
-            return CurrentStorageData;
-        end
-	end
-end
-
-function InventoryHandler.GenerateStorage(Frame, Width, Height, Type)
+function Inventory:GenerateStorage(Data, Frame)
+	-- get tile data
     local Tile = script.Parent:WaitForChild("Tile")
-	TileSize = Tile.Size.X.Offset
+	self.TileSize = Tile.Size.X.Offset
 
+	--[[
+	ToDo:
+		loop through the queue and generate a ui for each of the queued storages
+	]]--
+	local Width = #Data.Tiles +1
+	local Height = #Data.Tiles[1] +1
+
+	-- check for storage type and get storage
 	local Storage = nil;
-	if Type then
-		Storage = Frame.Parent
-		Storage.Size = UDim2.new(0, TileSize * Width, 0, TileSize * Height)
+	if Data.Type then
+		Storage = Frame
+		Storage.Size = UDim2.new(0, self.TileSize * Width, 0, self.TileSize * Height)
 	else
 		Storage = script.Parent:WaitForChild("Storage"):Clone()
 		Storage.Parent = Frame
-		Storage.Size = UDim2.new(0, TileSize * Width, 0, TileSize * Height)
+		Storage.Size = UDim2.new(0, self.TileSize * Width, 0, self.TileSize * Height)
 	end
 
-	local data = InventoryHandler.GenerateStorageData(Width, Height)
-	data.Storage = Storage
-	data.Type = Type or nil
+	-- get storage data
+	Data.Storage = Storage
 
-	Storages[StorageIndex] = data
-	StorageIndex = StorageIndex + 1
-
+	-- Generate the tiles at their Positions 
 	for x = 0, Width-1 do
 		for y = 0, Height-1 do
 			local TileClone = Tile:Clone()
 			TileClone.Parent = Storage
-			TileClone.Position = UDim2.new(0, x * TileSize, 0, y * TileSize)
+			TileClone.Position = UDim2.new(0, x * self.TileSize, 0, y * self.TileSize)
 		end
 	end
 	
@@ -52,14 +63,15 @@ function InventoryHandler.GenerateStorage(Frame, Width, Height, Type)
 		game.ReplicatedStorage.Common.Events.StorageEnter:Fire(Storage, x, y)
 	end)
 
-    return data;
+    return Data;
 end
 
-function InventoryHandler.GenerateStorageData(Width, Height)
+function Inventory:GenerateStorageData(Width, Height, Type)
 	local data = {}
+	data.ParentInventory = self
 	data.Storage = nil
+	data.Type = Type or nil
 	data.Tiles = {}
-	data.Items = {}
 
 	for x = 0, Width-1 do
 		local YTable = {}
@@ -67,7 +79,7 @@ function InventoryHandler.GenerateStorageData(Width, Height)
 		for y = 0, Height-1 do
 			data.Tiles[x][y] = {
 				["Claimed"] = false,
-				["Owner"] = nil,
+				-- ["Owner"] = nil,
 				-- ["TileFrame"] = TileClone,
 			}
 		end
@@ -99,17 +111,45 @@ function InventoryHandler.GenerateStorageData(Width, Height)
 		end
 	end
 
+	data.Trim = function()
+		data.ParentInventory = nil
+		return data
+	end 
+
 	return data
 end
 
-function InventoryHandler.GenerateInventory()
-	local InventoryData = {}
-	local storages = {}
-	local ItemList = {}
-	InventoryData.Storages = storages
-	InventoryData.ItemList = ItemList
-	return InventoryData
+function Inventory:GetDataFromStorage(Storage)
+	for i = 1, #self.Storages, 1 do
+		local CurrentStorageData = self.Storages[i]
+		if CurrentStorageData.Storage == Storage then
+            return CurrentStorageData;
+        end
+	end
+end
+
+function Inventory:AppendToQueue(StorageData) 
+	table.insert(self.StorageQueue, Data)
+	return StorageData
 end 
 
-return InventoryHandler
+function Inventory:AppendArrayToQueue(StorageDataArray)
+	for Index, Data in ipairs(StorageDataArray) do 
+		table.insert(self.StorageQueue, Data)
+	end
+	return StorageData
+end 
+return Inventory
+
+
+
+
+
+
+
+
+
+
+
+
 
