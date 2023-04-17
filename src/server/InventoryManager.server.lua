@@ -5,18 +5,20 @@ local players = game:GetService("Players")
 --- Libs
 local Inventory = require(ReplicatedStorage.Common:WaitForChild("InventoryHandler"))
 -- local Item = require(ReplicatedStorage.Common:WaitForChild("InventoryItem"))
+local ItemParams = require(ReplicatedStorage.Common:WaitForChild("ItemParams"))
 
 --- Directories
 local events = script.Parent -- directory of where the remote events are stored
 local ClientEvents = ReplicatedStorage.Common.Events
 
+--- Frequent Vars
+local SetData = events.SetStorageData
+
 ---
-local Storages = {}
+local PlayerInventories = {}
 
 players.PlayerAdded:Connect(function(plr) 
     local PlayerInventory = Inventory.new()
-    print(plr.UserId)
-    Storages[plr.UserId] = PlayerInventory
 
     local HeadData = PlayerInventory:GenerateStorageData(3, 3, "Head").Trim()
     local TorsoData = PlayerInventory:GenerateStorageData(3,3, "Torso").Trim()
@@ -27,17 +29,21 @@ players.PlayerAdded:Connect(function(plr)
     local StorageData1 = Inventory:GenerateStorageData(8,8).Trim()
     local StorageData2 = Inventory:GenerateStorageData(5,8).Trim()
 
+    -- local ItemData = ItemParams(StorageData1)
+    -- ItemData.
+
     PlayerInventory:AppendArrayToQueue({HeadData, TorsoData, LegsData, BackData, PrimaryWeaponData, SecondaryWeaponData, StorageData1, StorageData2})
-    print("appended to queue")
+    SetData:Fire(plr, PlayerInventory)
 end)
 
 ClientEvents.GetStorageData.OnServerInvoke = function (Player) 
-    if not Storages[Player.UserId] then return nil end
-    return Storages[Player.UserId]
+    if not PlayerInventories[Player.UserId] then return nil end
+    return PlayerInventories[Player.UserId]
 end
 
-events.SetStorageData.Event:Connect(function(ID, StorageData) 
-    if ID and StorageData then
-        Storages[ID] = StorageData 
+SetData.Event:Connect(function(Plr, InventoryData) 
+    if Plr and InventoryData then
+        PlayerInventories[Plr.UserId] = InventoryData 
+        ClientEvents.GetStorageData:InvokeClient(Plr)        
     end
 end)

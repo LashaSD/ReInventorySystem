@@ -13,14 +13,13 @@ end
 
 function Inventory:GenerateStoragesQueue()
 	local InventoryUi = game.Players.LocalPlayer.PlayerGui.Inventory.MainFrame.GridMainFrame
-	for _,Data in ipairs(self.StorageQueue) do 
+	for Index,Data in ipairs(self.StorageQueue) do 
 		local FrameDir = Data.Type and InventoryUi.a or InventoryUi.b
 		local Frame = Data.Type and FrameDir:FindFirstChild(Data.Type) or FrameDir 
-		print(Frame)
 		if Frame then
 			self:GenerateStorage(Data, Frame)
-			print("Looping through")
 		end 
+		-- table.remove(self.StorageQueue, Index)
 	end 
 end 	
 
@@ -29,10 +28,6 @@ function Inventory:GenerateStorage(Data, Frame)
     local Tile = script.Parent:WaitForChild("Tile")
 	self.TileSize = Tile.Size.X.Offset
 
-	--[[
-	ToDo:
-		loop through the queue and generate a ui for each of the queued storages
-	]]--
 	local Width = #Data.Tiles +1
 	local Height = #Data.Tiles[1] +1
 
@@ -49,6 +44,7 @@ function Inventory:GenerateStorage(Data, Frame)
 
 	-- get storage data
 	Data.Storage = Storage
+	Data.ParentInventory = self
 
 	-- Generate the tiles at their Positions 
 	for x = 0, Width-1 do
@@ -68,7 +64,6 @@ end
 
 function Inventory:GenerateStorageData(Width, Height, Type)
 	local data = {}
-	data.ParentInventory = self
 	data.Storage = nil
 	data.Type = Type or nil
 	data.Tiles = {}
@@ -112,7 +107,7 @@ function Inventory:GenerateStorageData(Width, Height, Type)
 	end
 
 	data.Trim = function()
-		data.ParentInventory = nil
+		-- data.ParentInventory = nil
 		return data
 	end 
 

@@ -161,7 +161,6 @@ function InventoryItem:Init()
         end 
         -- when the object frame hovers on another storage frame
         if (not self.PendingStorageData and self.StorageData.Storage ~= Storage) or (self.PendingStorageData and self.PendingStorageData.Storage ~= Storage) then 
-            -- print("ANOTHER ONE")
             self.PendingStorageData = self.StorageData.ParentInventory:GetDataFromStorage(Storage)
         end 
     end)
@@ -287,6 +286,7 @@ function InventoryItem:CheckValidLocation(width, height)
     end
 
     if StorageData.Type then
+        -- print(StorageData.Type, self.Type)
         if StorageData.Type ~= self.Type then
             return -1, -1, false
         end
