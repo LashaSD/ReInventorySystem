@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 --- Libs
-local InventoryMod = require(ReplicatedStorage.Common.InventoryHandler)
+local InventoryMod = require(ReplicatedStorage.Common.Inventory)
 
 --- Directories 
 local Events = ReplicatedStorage.Common.Events
@@ -18,13 +18,14 @@ local InventoryUi = Player.PlayerGui:WaitForChild("Inventory")
 -- Local Inventory Init
 local PlayerInventory = InventoryMod.new()
 
-Events.GetStorageData.OnClientInvoke = function()
-	local ServerInventory = Events.GetStorageData:InvokeServer()
-	PlayerInventory.StorageQueue = ServerInventory.StorageQueue
+Events.GetStorageData.OnClientEvent:Connect(function(ServerInventory)
+	PlayerInventory.Queue = ServerInventory.Queue
+	PlayerInventory.RemovalQueue = ServerInventory.RemovalQueue
 	if PlayerInventory then
-		PlayerInventory:GenerateStoragesQueue()
+		PlayerInventory:GenerateQueue()
+		PlayerInventory:EmptyRemovalQueue()
 	end
-end  
+end)
 
 
 -- Inventory Open Bind

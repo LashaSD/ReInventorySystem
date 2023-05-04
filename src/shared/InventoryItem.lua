@@ -1,9 +1,5 @@
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
-local UserInputService = game:GetService("UserInputService")
-local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
-
-local InventoryHandler = require(script.Parent.InventoryHandler)
 
 local DragabbleItem = require(script.Parent:WaitForChild("DraggableObject"))
 
@@ -15,20 +11,16 @@ local TileSize
 local InventoryItem = {}
 InventoryItem.__index = InventoryItem
 
-function InventoryItem.new(Item, Storage, tileX, tileY, Type)
-	local self = setmetatable({}, InventoryItem)
+function InventoryItem.new(ItemData, tileX, tileY)
+	local self = setmetatable(ItemData, InventoryItem)
 
 	self.TileX = tileX or nil
 	self.TileY = tileY or nil
 
-	self.Item = Item
+    self.Equipped = self.Type and false or nil
 
-    self.StorageData = Storage
+    self.DragFrame = DragabbleItem.new(self.Item)
 
-    self.Type = Type or nil
-    self.Equipped = Type and false or nil
-
-    self.DragFrame = DragabbleItem.new(Item)
     self.Offset = UDim2.fromOffset(0,0)
 
     self.OriginPosition = nil
@@ -42,6 +34,10 @@ function InventoryItem.new(Item, Storage, tileX, tileY, Type)
 end
 
 function InventoryItem:Init()
+    -- Vars 
+
+
+
     -- TileSize = self.StorageData.Tiles[0][0]["TileFrame"].Size.X.Offset
     TileSize = 30
 
@@ -111,12 +107,12 @@ function InventoryItem:Init()
                 if self.PendingStorageData and self.PendingStorageData.Type then
                     if not self.Equipped then
                         self.Equipped = true
-                        BaseComp.Equipped(self.Type, self.Item)
+                        BaseComp.Equipped(self.Type, self.Item, self.Id)
                     end
                 elseif self.PendingStorageData and not self.PendingStorageData.Type then
                     if self.Equipped then
                         self.Equipped = false
-                        BaseComp.Unequipped(self.Type, self.Item)
+                        BaseComp.Unequipped(self.Type, self.Item, self.Id)
                     end
                 end
             end
@@ -156,7 +152,6 @@ function InventoryItem:Init()
         if not self.DragFrame.Dragging then return end 
         -- when the object frame hovers back to the original storage frame
         if Storage == self.StorageData.Storage  then 
-            -- print("ORIGINAL")
             self.PendingStorageData = nil
         end 
         -- when the object frame hovers on another storage frame
@@ -216,6 +211,7 @@ function InventoryItem:GetItemHover()
 end 
 
 function InventoryItem:GetRotate()
+    local UserInputService = game:GetService("UserInputService")
     local connection = UserInputService.InputBegan:Connect(function(input)
         if input.KeyCode == Enum.KeyCode.R then
             local width = self.Item:GetAttribute("Width")
@@ -256,7 +252,7 @@ function InventoryItem:CheckValidLocation(width, height)
     end 
 
     local delta = StorageData.Storage.AbsolutePosition - StorageData.Storage.Parent.Parent.AbsolutePosition 
-    local pos = ItemPosition - self.Offset - UDim2.fromOffset(delta.X, delta.Y + YOffset)
+    local pos = ItemPosition - self.Offset - UDim2.fromOffset(delta.X, delta.Y)--+ YOffset)
 
     if self.PendingStorageData and not self.DragFrame.Dragging then 
         pos = ItemPosition - self.Offset 
@@ -286,7 +282,6 @@ function InventoryItem:CheckValidLocation(width, height)
     end
 
     if StorageData.Type then
-        -- print(StorageData.Type, self.Type)
         if StorageData.Type ~= self.Type then
             return -1, -1, false
         end
@@ -301,13 +296,6 @@ function InventoryItem:ChangeLocationWithinStorage(tileX, tileY)
     self.TileX = tileX
     self.TileY = tileY
     local StorageData = self.PendingStorageData or self.StorageData
-    -- local ItemData = {}
-    -- ItemData.Width = width
-    -- ItemData.Height = height
-    -- ItemData.X = self.TileX
-    -- ItemData.Y = self.TileY
-    -- ItemData.Frame = self.Item
-    -- InventoryHandler.AddItem(StorageData, ItemData)
     StorageData.ClaimTiles(tileX, tileY, width, height, self.Item)
     self.Item.Position = UDim2.new(0, tileX * TileSize, 0, tileY * TileSize) + self.Offset
     if self.Item.Rotation ~= self.CurrentOrientation then

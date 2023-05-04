@@ -1,14 +1,26 @@
+-- Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Directories
+local EventsFolder = ReplicatedStorage.Common.Events
+
+-- Events
+local ClothingEquipEvent = EventsFolder.EquipEvent
+local ClothingUnequipEvent = EventsFolder.UnequipEvent
+
 local Components = script.Parent.Components -- Directory of Components 
 
 local Component = {}
 
 local ClothingFunction = {
-    function()
+    function(Type, Item, Id)
         -- Equip
-        print("Put On Clothing TEST")
+        ClothingEquipEvent:FireServer(Type, Item, Id)
+        print("Put On Clothing")
     end,
-    function()
+    function(Type, Item, Id)
         -- Unequip
+        ClothingUnequipEvent:FireServer(Type, Item, Id)
         print("Take Off Clothing")
     end,
 }
@@ -33,15 +45,14 @@ local Actions = {
     ["Secondary"] = WeaponFunction
 }
 
-function Component.Equipped(Type, Item) 
+function Component.Equipped(Type, Item, Id) 
     if Actions[Type] then 
-        Actions[Type][1](Type)
+        Actions[Type][1](Type, Item, Id)
     end 
 
     local Directory = Components:FindFirstChild(Item.Name)
     if not Directory then return end
 
-    print(Directory)
     local Comp= require(Directory)
     if Comp then
         Comp.Equipped()
@@ -49,10 +60,8 @@ function Component.Equipped(Type, Item)
     end
 end 
 
-
-
-function Component.Unequipped(Type, Item) 
-    if Actions[Type] then Actions[Type][2](Item) end 
+function Component.Unequipped(Type, Item, Id) 
+    if Actions[Type] then Actions[Type][2](Type, Item, Id) end
 
     local Directory = Components:FindFirstChild(Item.Name)
     if not Directory then return end
