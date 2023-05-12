@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ItemMod = require(ReplicatedStorage.Common:WaitForChild("InventoryItem"))
+local InventoryHandler = require(ReplicatedStorage.Common:WaitForChild("InventoryHandler"))
 
 local Inventory = {}
 Inventory.__index = Inventory
@@ -7,9 +8,9 @@ Inventory.__index = Inventory
 function Inventory.new()
 	local self = setmetatable({}, Inventory)
 	self.Storages = {}
-	self.Queue = {} -- { [1] = {StorageData, {ItemData, ItemData, ....}}, [2] = {StorageData, {ItemData, ItemData, .....}}}
+	self.Queue = {} -- Array< Array< StorageData, Array<ItemData> > >
 	self.RemovalQueue = {}
-	self.Items = {} -- Seperate List of Items 
+	self.Items = {} -- Array<ItemData>
 	self.TileSize = nil
 
 	return self
@@ -19,8 +20,8 @@ function Inventory:GenerateQueue()
 	local InventoryUi = game.Players.LocalPlayer.PlayerGui.Inventory.MainFrame.GridMainFrame
 	for i = 1, #self.Queue do
 		local Data = self.Queue[i]
-		local StorageData = self:GenerateStorageData(Data[1][1], Data[1][2], Data[1][3], Data[1][4])
-		local FrameDir = StorageData.Type and InventoryUi.a or InventoryUi.b
+		local StorageData = InventoryHandler.GenerateStorageData(Data[1][1], Data[1][2], Data[1][3], Data[1][4])
+		local FrameDir = StorageData.Type and InventoryUi.a.a or InventoryUi.b.b
 		local Frame = StorageData.Type and FrameDir:FindFirstChild(StorageData.Type) or FrameDir
 		if Frame then
 			local NewStorageData = self:GenerateStorage(StorageData, Frame)
@@ -74,7 +75,7 @@ function Inventory:GenerateStorage(Data, Frame)
 		Storage.Size = UDim2.new(0, self.TileSize * Width, 0, self.TileSize * Height)
 	end
 
-	-- get storage data
+	-- storage data
 	Data.Storage = Storage
 	Data.ParentInventory = self
 
@@ -91,62 +92,8 @@ function Inventory:GenerateStorage(Data, Frame)
 		game.ReplicatedStorage.Common.Events.StorageEnter:Fire(Storage, x, y)
 	end)
 
+	table.insert(self.Storages, Data)
     return Data;
-end
-
-function Inventory:GenerateStorageData(Width, Height, Type, Id)
-	local data = {}
-	data.Storage = nil
-	data.Type = Type or nil
-	data.Id = Id or nil
-	data.Tiles = {}
-
-	for x = 0, Width-1 do
-		local YTable = {}
-		data.Tiles[x] = YTable
-		for y = 0, Height-1 do
-			data.Tiles[x][y] = {
-				["Claimed"] = false,
-				-- ["Owner"] = nil,
-				-- ["TileFrame"] = TileClone,
-			}
-		end
-	end
-
-	data.ClaimTile = function(TileX, TileY, Owner)
-		data.Tiles[TileX][TileY]["Claimed"] = true
-		data.Tiles[TileX][TileY]["Owner"] = Owner
-	end
-
-	data.UnclaimTile = function(TileX, TileY)
-		data.Tiles[TileX][TileY]["Claimed"] = false
-		data.Tiles[TileX][TileY]["Owner"] = nil
-	end
-
-	data.ClaimTiles = function(X, Y, Width, Height, Owner)
-		for i=X, X + Width -1  do
-			for j=Y, Y+Height -1 do
-				data.ClaimTile(i,j,Owner)
-			end
-		end
-	end
-
-	data.UnclaimTiles = function(X, Y, Width, Height)
-		for i=X, X + Width-1 do
-			for j=Y, Y+Height-1 do
-				data.UnclaimTile(i,j)
-			end
-		end
-	end
-
-	-- might be useful later
-	data.Trim = function()
-		-- data.ParentInventory = nil
-		return data
-	end
-	
-	table.insert(self.Storages, data)
-	return data
 end
 
 function Inventory:GenerateItemData(p_StorageData, p_Type, p_Item, p_Id) 

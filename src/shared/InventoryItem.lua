@@ -117,7 +117,6 @@ function InventoryItem:Init()
                 end
             end
         else 
-            -- self:HoverClear(x, y)
 
             -- Origin Storage Reset
             if self.PendingStorageData ~= self.StorageData then 
