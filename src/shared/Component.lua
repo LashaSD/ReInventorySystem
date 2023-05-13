@@ -15,7 +15,10 @@ local Component = {}
 local ClothingFunction = {
     function(Type, Item, Id)
         -- Equip
-        ClothingEquipEvent:FireServer(Type, Item, Id)
+        local Data = {}
+        Data.Width = Item:GetAttribute("InventoryWidth")
+        Data.Height = Item:GetAttribute("InventoryHeight")
+        ClothingEquipEvent:FireServer(Type, Data, Id)
         print("Put On Clothing")
     end,
     function(Type, Item, Id)

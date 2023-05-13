@@ -16,35 +16,59 @@ local Character = Player.Character or Player.CharacterAdded:Wait()
 
 local InventoryUi = Player.PlayerGui:WaitForChild("Inventory")
 
--- Local Inventory Init
+-- Client Side Inventory
 local PlayerInventory = InventoryMod.new()
-local PlayerStorageUnit = nil
 
-Events.GetStorageData.OnClientEvent:Connect(function(ServerData) -- sync Client Data with Server Data (replication)
-	local ServerPlayerStorage = ServerData["MainStorage"]
-	local ServerPlayerUnitData = ServerData["StorageUnit"]
+-- Inventory Ui functions 
 
-	if PlayerInventory and ServerPlayerStorage then
+local function OpenInventory()
+	InventoryUi.MainFrame.Visible = true
+end 
+
+local function CloseInventory()
+	InventoryUi.MainFrame.Visible = false
+end 
+
+local function TriggerInventory()
+	InventoryUi.MainFrame.Visible = not InventoryUi.MainFrame.Visible
+end 
+
+-- sync Client Data with Server Data (replication)
+Events.GetStorageData.OnClientEvent:Connect(function(ServerPlayerStorage, ServerPlayerUnitData) 
+
+	if not PlayerInventory then return nil end
+
+	if ServerPlayerStorage then
 		PlayerInventory.Queue = ServerPlayerStorage.Queue
 		PlayerInventory.RemovalQueue = ServerPlayerStorage.RemovalQueue
 		PlayerInventory:GenerateQueue()
 		PlayerInventory:EmptyRemovalQueue()
 	end
 
-	print(ServerData)
-
 	if ServerPlayerUnitData then
-		PlayerStorageUnit = StorageUnitMod.new(ServerPlayerUnitData) 
-		PlayerStorageUnit:GenerateUi()
+		local PlayerStorageUnit = StorageUnitMod.new(ServerPlayerUnitData) -- create a client side storage unit object from server passed data
+		PlayerInventory.StorageUnit = PlayerStorageUnit
+		PlayerInventory.StorageUnit:GenerateUI(PlayerInventory) -- build ui grid 
+		if not InventoryUi.MainFrame.Visible then OpenInventory() end  -- if the inventory isnt visible open it
+	elseif PlayerInventory.StorageUnit then -- remove the ui from client
+		--PlayerInventory.StorageUnit:ClearUI()
 	end
 
 end)
 
+Events.StorageUnit.OnClientEvent:Connect(function(StorageUnitData) 
 
--- Inventory Open Bind
+end)
 
+
+-- Inventory Ui Open Bind
 UserInputService.InputBegan:Connect(function(input) 
-	if input.KeyCode == Enum.KeyCode.Tab then	
-		InventoryUi.MainFrame.Visible = not InventoryUi.MainFrame.Visible 
+	if input.KeyCode == Enum.KeyCode.Tab then
+		TriggerInventory()	
+		if not InventoryUi.MainFrame.Visible then
+			if PlayerInventory.StorageUnit then
+				PlayerInventory.StorageUnit:Deauthorize()
+			end
+		end 
 	end
 end)

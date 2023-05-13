@@ -7,23 +7,22 @@ local CollectionService = game:GetService("CollectionService")
 local Inventory = require(ReplicatedStorage.Common:WaitForChild("Inventory"))
 local InventoryHandler = require(ReplicatedStorage.Common:WaitForChild("InventoryHandler"))
 local StorageUnitMod = require(ReplicatedStorage.Common:WaitForChild("StorageUnit"))
+
 --- Directories
 local events = script.Parent -- directory of where the remote events are stored
 local ClientEvents = ReplicatedStorage.Common.Events
 
---- Frequent Vars
+--- Events
 local SetData = events.SetStorageData
 
 ---
-local PlayerStorageData = {} -- Dict<UserId, Dict<"MainStorage": MainStorageInventory, "StorageUnit": StorageUnitInventory>
+local PlayerStorageData = {} -- Dict<UserId, Inventory>
 local StorageUnits = {}
 
 local ItemId = 0
 
 players.PlayerAdded:Connect(function(plr)
-    local Data = {}
     local PlayerInventory = Inventory.new()
-    local StorageUnitData = nil
 
     local HeadData = {3, 3, "Head"}
     local TorsoData = {3,3, "Torso"}
@@ -41,17 +40,14 @@ players.PlayerAdded:Connect(function(plr)
     ItemId = ItemId + 1
     local ItemData1 = PlayerInventory:GenerateItemData(StorageData2, "Back", "Robux", ItemId)
     ItemId = ItemId + 1
-    local ItemData2 = PlayerInventory:GenerateItemData(StorageData2, "Back", "RickAstley", ItemId)
+    local ItemData2 = PlayerInventory:GenerateItemData(StorageData2, nil, "RickAstley", ItemId)
     ItemId = ItemId + 1
-    local ItemData3 = PlayerInventory:GenerateItemData(StorageData2, "Back", "RickAstley1", ItemId)
+    local ItemData3 = PlayerInventory:GenerateItemData(StorageData2, nil, "RickAstley1", ItemId)
     ItemId = ItemId + 1
 
     InventoryHandler.AppendItemArrayToQueue(PlayerInventory, {ItemData, ItemData1, ItemData2, ItemData3})
 
-    Data["MainStorage"] = PlayerInventory
-    Data["StorageUnit"] = StorageUnitData
-
-    SetData:Fire(plr, Data)
+    SetData:Fire(plr, PlayerInventory)
 end)
 
 ClientEvents.GetStorageData.OnServerEvent:Connect(function(Player)
@@ -60,27 +56,31 @@ ClientEvents.GetStorageData.OnServerEvent:Connect(function(Player)
 end)
 
 -- Bindable Event that updates and synces player inventory data on server and client
-SetData.Event:Connect(function(Plr, Data)
-    if Plr and Data then
-        ClientEvents.GetStorageData:FireClient(Plr, Data)
-        local PlrInventory = Data["MainStorage"]
-        local UnitData = Data["StorageUnit"]
-        if PlrInventory then
-            PlrInventory.Queue = {} -- reset the queue so the client wont duplicate the storages
-        end 
-        PlayerStorageData[Plr.UserId] = Data
+SetData.Event:Connect(function(Plr, p_InventoryData, p_UnitData)
+    if not (Plr and (p_InventoryData or p_UnitData)) then return nil end
+
+
+    ClientEvents.GetStorageData:FireClient(Plr, p_InventoryData, p_UnitData) -- send data to client
+    if p_InventoryData then
+        p_InventoryData.Queue = {} -- reset the queue so the client wont duplicate the storages
     end
+    local InventoryData = p_InventoryData
+    if p_UnitData then
+        InventoryData = p_InventoryData or PlayerStorageData[Plr.UserId]
+        InventoryData.StorageUnit = p_UnitData
+    end
+    PlayerStorageData[Plr.UserId] = InventoryData
 end)
 
 ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, Item, Id) 
-    local plrInventory = PlayerStorageData[Player.UserId]["MainStorage"]
+    local plrInventory = PlayerStorageData[Player.UserId]
     if plrInventory then
         for i, ItemData in ipairs(plrInventory.Items) do
             if ItemData.Type == Type and ItemData.Id == Id then
-                local width = Item:GetAttribute("InventoryWidth")
-                local height = Item:GetAttribute("InventoryHeight")
+                local width = Item.Width
+                local height = Item.Height
                 if width and height then
-                    local AddedStorage = {width, height, nil, ItemData.Id}
+                    local AddedStorage = {width, height, nil, "ASBN"..ItemData.Id}
                     InventoryHandler.AppendStorageToQueue(plrInventory, AddedStorage)
                     SetData:Fire(Player, plrInventory)
                 end
@@ -90,18 +90,58 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, Item, Id)
 end)
 
 ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Item, Id) 
-    local plrInventory = PlayerStorageData[Player.UserId]["MainStorage"]
+    local plrInventory = PlayerStorageData[Player.UserId]
     if plrInventory then
         -- search the item 
           for _, ItemData in ipairs(plrInventory.Items) do
             if ItemData.Type == Type and ItemData.Id == Id then -- item exists on the server and it can be equipped
-                -- search for the storage to delete 
-                table.insert(plrInventory.RemovalQueue, Id)
+                table.insert(plrInventory.RemovalQueue, "ASBN"..Id)
                 SetData:Fire(Player, plrInventory)
-                PlayerStorageData[Player.UserId]["MainStorage"].RemovalQueue = {}
+                PlayerStorageData[Player.UserId].RemovalQueue = {}
                 return
             end
         end
+    end
+end)
+
+ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageUnitId, p_ItemId, ItemData)
+    -- get the storage unit  
+    local StorageUnit 
+    for _, unit in ipairs(StorageUnits) do
+        if unit.Id == StorageUnitId then
+            StorageUnit = unit
+            break
+        end
+    end
+    if Action == "deauthorize" then
+        StorageUnit:Deauthorize()
+        PlayerStorageData[Player.UserId].StorageUnit = nil
+    elseif Action == "additem" then
+        local InventoryData = PlayerStorageData[Player.UserId]
+        local itemData = nil
+        for index, Data in ipairs(InventoryData.Items) do
+            if Data.Id == p_ItemId then
+                itemData = Data
+                table.remove(InventoryData.Items, index)
+                break
+            end
+        end
+        if not itemData then return nil end
+        itemData.TileX = ItemData.TileX
+        itemData.TileY = ItemData.TileY
+        itemData.Name = ItemData.Name
+        StorageUnit:InsertItem(itemData)
+    elseif Action == "removeitem" then
+        local InventoryData = PlayerStorageData[Player.UserId]
+        local itemData = StorageUnit:RemoveItem(p_ItemId)
+        if not itemData then return nil end
+        table.insert(InventoryData.Items, itemData)
+    elseif Action == "updatedata" then
+        print(ItemData) 
+        local itemData = StorageUnit.Items[tostring(p_ItemId)]
+        itemData.TileX = ItemData.TileX
+        itemData.TileY = ItemData.TileY
+        itemData.Name = ItemData.Name
     end
 end)
 
@@ -126,25 +166,19 @@ for _, Part in ipairs(StorageUnitParts) do
                 local response = StorageUnit:Authorize(Player)
                 if not response then return nil end     
 
-                local PlrStorageData = PlayerStorageData[Player.UserId] -- get Player Storage Data
-                if not PlrStorageData then 
+                local PlayerInventory = PlayerStorageData[Player.UserId] -- get Player Storage Data
+                if not PlayerInventory then 
                     StorageUnit:Deauthorize()
                     return nil
                 end
 
-                local PlayerStorageUnit = PlrStorageData["StorageUnit"] -- get the player inventory for holding storage unit data
-                if PlayerStorageUnit then 
+                local PlayerStorageUnit = PlayerInventory.StorageUnit -- get the player inventory for holding storage unit data
+                if PlayerStorageUnit then -- check if player is already authorized in another storage unit
                     StorageUnit:Deauthorize()
                     return nil
                 end
-
-                local data = {["StorageUnit"] = StorageUnit}
-
-                print("Sending data")
-                print(data)
-
-                SetData:Fire(Player, data)
-
+                print(StorageUnit:GetData())
+                SetData:Fire(Player, nil, StorageUnit:GetData()) 
             end)
         end 
     end 

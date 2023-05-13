@@ -1,15 +1,13 @@
+-- Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Libs
+
+-- Events 
+
 local InventoryHandler = {}
 
 -- Utility
-
-InventoryHandler.GetDataFromStorage = function(Inventory, Storage)
-    for i = 1, #Inventory.Storages, 1 do
-		local CurrentStorageData = Inventory.Storages[i]
-		if CurrentStorageData.Storage == Storage then
-            return CurrentStorageData;
-        end
-	end
-end
 
 InventoryHandler.AppendStorageToQueue = function(Inv, StorageData)
 	local Data = {StorageData}
@@ -45,8 +43,7 @@ InventoryHandler.AppendStorageToRemovalQueue = function(Inv, StorageId)
 	table.insert(Inv.RemovalQueue, StorageId)
 end
 
--- Data
-
+-- Data Generation
 function InventoryHandler.GenerateStorageUnitData(p_Width, p_Height, p_Id, p_Accessible)
 	if not p_Id or not p_Width or not p_Height then return nil end
 	local data = {}
@@ -61,7 +58,8 @@ function InventoryHandler.GenerateStorageData(Width, Height, Type, Id)
 	local data = {}
 	data.Storage = nil
 	data.Type = Type or nil
-	data.Id = Id or nil
+	data.Id = Id or nil -- we need the id for when we get new storage on equip to delete it after unequipping
+	
 	data.Tiles = {}
 
 	for x = 0, Width-1 do
@@ -93,8 +91,8 @@ function InventoryHandler.GenerateStorageData(Width, Height, Type, Id)
 	end
 
 	data.UnclaimTiles = function(X, Y, Width, Height)
-		for i=X, X + Width-1 do
-			for j=Y, Y+Height-1 do
+		for i=X, X + Width -1 do
+			for j=Y, Y+Height -1  do
 				data.UnclaimTile(i,j)
 			end
 		end
@@ -109,5 +107,48 @@ function InventoryHandler.GenerateStorageData(Width, Height, Type, Id)
 	return data
 end
 
+-- Data Getters 
+
+function InventoryHandler.GetDataFromStorage(StorageFrame)
+
+end 	
+
+-- Modified Function for generating Storage Units
+function InventoryHandler:GenerateStorage(Data, Frame)
+	-- get tile data
+    local Tile = ReplicatedStorage.Common:WaitForChild("Tile")
+	local TileSize = Tile.Size.X.Offset
+
+	local Width = #Data.Tiles +1
+	local Height = #Data.Tiles[1] +1
+
+	-- check for storage type and get storage
+	local Storage = script.Parent:WaitForChild("Storage"):Clone()
+	local InvisibleFrame = Frame:FindFirstChild("InvisibleFrame1")
+	local clone = InvisibleFrame:Clone()
+	InvisibleFrame:Destroy()
+	Storage.Parent = Frame
+	clone.Parent = Frame
+	Storage.Size = UDim2.new(0, self.TileSize * Width, 0, self.TileSize * Height)
+
+	-- storage data
+	Data.Storage = Storage
+
+	-- Generate the tiles at their Positions
+	for x = 0, Width-1 do
+		for y = 0, Height-1 do
+			local TileClone = Tile:Clone()
+			TileClone.Parent = Storage
+			TileClone.Position = UDim2.new(0, x * self.TileSize, 0, y * self.TileSize)
+		end
+	end
+
+	Storage.MouseEnter:Connect(function(x, y)
+		game.ReplicatedStorage.Common.Events.StorageEnter:Fire(Storage, x, y)
+	end)
+
+	table.insert(self.Storages, Data)
+    return Data;
+end
 
 return InventoryHandler

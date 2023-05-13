@@ -1,21 +1,26 @@
+-- Services
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+-- Libs
 local DragabbleItem = require(script.Parent:WaitForChild("DraggableObject"))
 
 -- Directory Paths 
 local Events = script.Parent.Events
+
+-- Events 
+local StorageUnitActions = Events:WaitForChild("StorageUnit")
 
 local TileSize 
 
 local InventoryItem = {}
 InventoryItem.__index = InventoryItem
 
-function InventoryItem.new(ItemData, tileX, tileY)
+function InventoryItem.new(ItemData)
 	local self = setmetatable(ItemData, InventoryItem)
 
-	self.TileX = tileX or nil
-	self.TileY = tileY or nil
+	self.TileX = ItemData.TileX or 0
+	self.TileY = ItemData.TileY or 0
 
     self.Equipped = self.Type and false or nil
 
@@ -44,9 +49,6 @@ function InventoryItem:Init()
 	local width = self.Item:GetAttribute("Width")
 	local height = self.Item:GetAttribute("Height")
 
-    -- Inserting The Item into the Players Inventory
-    table.insert(self.StorageData.ParentInventory.Items, self.Item)
-
     self.Item.Parent = self.StorageData.Storage
     self.Item.Size = UDim2.new(0, TileSize * width, 0, TileSize * height)
 
@@ -65,7 +67,7 @@ function InventoryItem:Init()
     local HoverConnection = nil
     local rotateConnection = nil
     self.DragFrame.DragStarted = function()
-        self.Item.Parent = self.Item.Parent.Parent.Parent
+        self.Item.Parent = self.Item.Parent.Parent.Parent.Parent
         if self.StorageData.Type then self.Item.Parent = self.Item.Parent.Parent end  
         self.Item.Position = UDim2.fromOffset(self.Item.AbsolutePosition - self.StorageData.Storage.AbsolutePosition)
         -- make the tiles that the item was on claimable
@@ -98,7 +100,7 @@ function InventoryItem:Init()
 
         local tileX = valid and x or self.TileX
         local tileY = valid and y or self.TileY
-
+        
         if valid then
             self.CurrentOrientation = self.Item.Rotation
             -- Interaction Component Handler 
@@ -116,7 +118,18 @@ function InventoryItem:Init()
                     end
                 end
             end
-        else 
+            -- Storage Unit Logic
+            local parsedData = {["TileX"] = x, ["TileY"] = y, ["Name"] = self.Item.Name}
+            if self.PendingStorageData and self.PendingStorageData.Storage.Parent.Name == "c" then -- when we add item to storage unit
+                StorageUnitActions:FireServer("additem", self.PendingStorageData.Id, self.Id, parsedData)
+            end
+            if (self.PendingStorageData and self.PendingStorageData.Storage.Parent.Name ~= "c") and self.StorageData.Storage.Parent.Name == "c" then
+                StorageUnitActions:FireServer("removeitem", self.StorageData.Id, self.Id, parsedData)
+            end
+            if not self.PendingStorageData and self.StorageData.Storage.Parent.Name == 'c' then 
+                StorageUnitActions:FireServer("updatedata", self.StorageData.Id, self.Id, parsedData)
+            end 
+        else
 
             -- Origin Storage Reset
             if self.PendingStorageData ~= self.StorageData then 
@@ -137,7 +150,6 @@ function InventoryItem:Init()
             self.Item.Rotation = self.CurrentOrientation
         end 
         self:ChangeLocationWithinStorage(tileX, tileY)
-        -- self:HoverClear(tileX,tileY)
         if self.PendingStorageData then
             self.StorageData = self.PendingStorageData
             self.PendingStorageData = nil
@@ -147,7 +159,7 @@ function InventoryItem:Init()
 
 
     -- [[ STORAGE CHANGE EVENT ]] --
-    Events:WaitForChild("StorageEnter").Event:Connect(function(Storage, X, Y) 
+    Events:WaitForChild("StorageEnter").Event:Connect(function(Inventory, Storage) 
         if not self.DragFrame.Dragging then return end 
         -- when the object frame hovers back to the original storage frame
         if Storage == self.StorageData.Storage  then 
@@ -155,7 +167,8 @@ function InventoryItem:Init()
         end 
         -- when the object frame hovers on another storage frame
         if (not self.PendingStorageData and self.StorageData.Storage ~= Storage) or (self.PendingStorageData and self.PendingStorageData.Storage ~= Storage) then 
-            self.PendingStorageData = self.StorageData.ParentInventory:GetDataFromStorage(Storage)
+            self.PendingStorageData = _G.Cache
+            _G.Cache = nil
         end 
     end)
 
@@ -229,29 +242,21 @@ function InventoryItem:GetRotate()
 end 
 
 function InventoryItem:CheckValidLocation(width, height) 
-	local ItemPosition = self.Item.Position
+    local ItemPosition = self.Item.Position
 	
     local StorageData = self.PendingStorageData or self.StorageData
 
 	local MaxTilesX = #StorageData.Tiles
 	local MaxTilesY = #StorageData.Tiles[0]
 
-    if tonumber(width) > tonumber(MaxTilesX)+1 or tonumber(height) > tonumber(MaxTilesY)+1 then 
+    if tonumber(width) > tonumber(MaxTilesX)+1 or tonumber(height) > tonumber(MaxTilesY)+1 then
         return -1,-1, false
     end 
 
     local tiles = StorageData.Tiles
 
-    local YOffset = 0
-    local success, _ = pcall(function() 
-        return StorageData.Storage.Parent.CanvasPosition
-    end)
-    if success then 
-        YOffset = StorageData.Storage.Parent.CanvasPosition.Y
-    end 
-
-    local delta = StorageData.Storage.AbsolutePosition - StorageData.Storage.Parent.Parent.AbsolutePosition 
-    local pos = ItemPosition - self.Offset - UDim2.fromOffset(delta.X, delta.Y)--+ YOffset)
+    local delta = StorageData.Storage.AbsolutePosition - StorageData.Storage.Parent.Parent.Parent.AbsolutePosition 
+    local pos = ItemPosition - self.Offset - UDim2.fromOffset(delta.X, delta.Y)
 
     if self.PendingStorageData and not self.DragFrame.Dragging then 
         pos = ItemPosition - self.Offset 

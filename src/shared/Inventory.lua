@@ -11,6 +11,7 @@ function Inventory.new()
 	self.Queue = {} -- Array< Array< StorageData, Array<ItemData> > >
 	self.RemovalQueue = {}
 	self.Items = {} -- Array<ItemData>
+	self.StorageUnit = nil -- <StorageUnit>
 	self.TileSize = nil
 
 	return self
@@ -30,8 +31,8 @@ function Inventory:GenerateQueue()
 			if ItemQueue then
 				for _, ItemData in ipairs(ItemQueue) do
 					ItemData.StorageData = NewStorageData
-					ItemData.Item = ReplicatedStorage.Items:FindFirstChild(ItemData.Item)
-					local Item = ItemMod.new(ItemData, 0, 0):Init()
+					ItemData.Item = ReplicatedStorage.Items:FindFirstChild(ItemData.Item):Clone()
+					local Item = ItemMod.new(ItemData):Init()
 					table.insert(self.Items, Item)
 				end
 			end
@@ -46,7 +47,7 @@ function Inventory:EmptyRemovalQueue()
 		local removalId = self.RemovalQueue[i]
 		-- find the storage with given id 
 		for Index, Storage in ipairs(self.Storages) do
-			if Storage.Id and Storage.Id == removalId then
+			if Storage.Id == removalId then
 				table.remove(self.Storages, Index)
 				Storage.Storage:Destroy()
 				return
@@ -61,8 +62,9 @@ function Inventory:GenerateStorage(Data, Frame)
     local Tile = script.Parent:WaitForChild("Tile")
 	self.TileSize = Tile.Size.X.Offset
 
-	local Width = #Data.Tiles +1
-	local Height = #Data.Tiles[1] +1
+	local Width = #Data.Tiles + 1
+	local Height = #Data.Tiles[1] + 1
+
 
 	-- check for storage type and get storage
 	local Storage = nil;
@@ -77,7 +79,6 @@ function Inventory:GenerateStorage(Data, Frame)
 
 	-- storage data
 	Data.Storage = Storage
-	Data.ParentInventory = self
 
 	-- Generate the tiles at their Positions
 	for x = 0, Width-1 do
@@ -88,20 +89,28 @@ function Inventory:GenerateStorage(Data, Frame)
 		end
 	end
 
-	Storage.MouseEnter:Connect(function(x, y)
-		game.ReplicatedStorage.Common.Events.StorageEnter:Fire(Storage, x, y)
+	Storage.MouseEnter:Connect(function()
+		_G.Cache = Data
+		game.ReplicatedStorage.Common.Events.StorageEnter:Fire(Storage)
 	end)
 
 	table.insert(self.Storages, Data)
     return Data;
 end
 
+---@param p_StorageData "StorageData"
+---@param p_Type StringValue 
+---@param p_Item StringValue ItemName
+---@param p_Id "ItemId"
 function Inventory:GenerateItemData(p_StorageData, p_Type, p_Item, p_Id) 
+	if not p_Id or not p_StorageData then return nil end 
 	local Data = {}
 	Data.Storage = p_StorageData
+	Data.Id = p_Id
 	Data.Type = p_Type or nil
 	Data.Item = p_Item or nil
-	Data.Id = p_Id or nil
+	Data.TileX = nil 
+	Data.TileY = nil
 	table.insert(self.Items, Data)
 	return Data
 end 
