@@ -21,6 +21,7 @@ function StorageUnit.new(p_StorageData)
     local self = setmetatable(p_StorageData, StorageUnit)
     self.User = p_StorageData.User or nil
     self.Items = p_StorageData.Items or {} -- Dictionary<ItemId, ItemData>
+    self.AuthorizationData = nil
 
     -- p_StorageData includes: Width, Height, Id
 
@@ -39,11 +40,6 @@ function StorageUnit:RemoveItem(ItemId)
     return itemData
 end 
 
----@deprecated
-function StorageUnit:RetrieveItemData(ItemId)
-    if self.Items[ItemId] then return self.Items[ItemId] end
-end 
-
 function StorageUnit:GetData()
     local Data = {}
     Data.User = self.User
@@ -51,11 +47,17 @@ function StorageUnit:GetData()
     Data.Width = self.Width
     Data.Height = self.Height
     Data.Items = self.Items
+    Data.AuthorizationData = self.AuthorizationData
     return Data
 end 
 
 function StorageUnit:Authorize(Player) 
-    if self.User then return false end 
+    if self.User then return false end
+
+    if RunService:IsServer() and self.AuthorizationData == 'deauthorize' then
+        self.AuthorizationData = nil
+    end
+
     self.User = Player.UserId
     return true
 end 
@@ -65,6 +67,8 @@ function StorageUnit:Deauthorize()
     if RunService:IsClient() then
         self:ClearUI()
         StorageUnitActions:FireServer('deauthorize', self.Id)
+    else 
+        self.AuthorizationData = 'deauthorize'
     end
 end
 
@@ -78,7 +82,7 @@ function StorageUnit:GenerateUI(PlayerInventory)
     local FrameDir = InventoryUi.c.c
     StorageData = PlayerInventory:GenerateStorage(StorageData, FrameDir)
     -- ITEM UI
-    print(self.Items)
+
     for id, data in pairs(self.Items) do
         local itemData = PlayerInventory:GenerateItemData(StorageData, nil, nil, data.Id)
         itemData.Item = ReplicatedStorage.Items:FindFirstChild(data.Name):Clone()
