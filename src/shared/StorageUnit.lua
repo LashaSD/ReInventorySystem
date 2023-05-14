@@ -40,6 +40,15 @@ function StorageUnit:RemoveItem(ItemId)
     return itemData
 end 
 
+function StorageUnit:TransferItem(PlayerInventory, ItemName)
+    -- if self.Accessible then return nil end
+    -- local ItemObj = ReplicatedStorage.Items:FindFirstChild(ItemName)
+    -- local width = ItemObj:GetAttribute("Width")
+    -- local height = ItemObj:GetAttribute("Height")
+    -- local StorageData, x, y = InventoryHandler.CheckFreeSpaceInventoryWide(PlayerInventory, width, height)
+    -- local ItemData = PlayerInventory:GenerateItemData(StorageData, ItemObj, )
+end
+
 function StorageUnit:GetData()
     local Data = {}
     Data.User = self.User
@@ -84,7 +93,7 @@ function StorageUnit:GenerateUI(PlayerInventory)
     -- ITEM UI
 
     for id, data in pairs(self.Items) do
-        local itemData = PlayerInventory:GenerateItemData(StorageData, nil, nil, data.Id)
+        local itemData = PlayerInventory:GenerateItemData(StorageData, nil, data.Id)
         itemData.Item = ReplicatedStorage.Items:FindFirstChild(data.Name):Clone()
         itemData.StorageData = StorageData
         itemData.TileX = data.TileX

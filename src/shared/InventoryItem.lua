@@ -1,15 +1,20 @@
 -- Services
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Libs
-local DragabbleItem = require(script.Parent:WaitForChild("DraggableObject"))
+local DragabbleItem = require(ReplicatedStorage.Common:WaitForChild("DraggableObject"))
+local InventoryHandler = require(ReplicatedStorage.Common:WaitForChild("InventoryHandler"))
 
 -- Directory Paths 
 local Events = script.Parent.Events
 
 -- Events 
 local StorageUnitActions = Events:WaitForChild("StorageUnit")
+local InventoryActions = Events:WaitForChild("Inventory")
 
 local TileSize 
 
@@ -19,8 +24,10 @@ InventoryItem.__index = InventoryItem
 function InventoryItem.new(ItemData)
 	local self = setmetatable(ItemData, InventoryItem)
 
-	self.TileX = ItemData.TileX or 0
-	self.TileY = ItemData.TileY or 0
+    local x, y = InventoryHandler.CheckFreeSpace(self.StorageData, tonumber(self.Item:GetAttribute("Width")), tonumber(self.Item:GetAttribute("Height")))
+
+	self.TileX = ItemData.TileX or x
+	self.TileY = ItemData.TileY or y
 
     self.Equipped = self.Type and false or nil
 
@@ -39,11 +46,6 @@ function InventoryItem.new(ItemData)
 end
 
 function InventoryItem:Init()
-    -- Vars 
-
-
-
-    -- TileSize = self.StorageData.Tiles[0][0]["TileFrame"].Size.X.Offset
     TileSize = 30
 
 	local width = self.Item:GetAttribute("Width")
@@ -52,13 +54,10 @@ function InventoryItem:Init()
     self.Item.Parent = self.StorageData.Storage
     self.Item.Size = UDim2.new(0, TileSize * width, 0, TileSize * height)
 
-    -- Initialize the Location of the Item in the Inventory
-    --[[
-    ToDo: 
-        Find free space automatically to place items in, without given tile coords
-    ]]--
-
 	self:ChangeLocationWithinStorage(self.TileX, self.TileY)
+    local ClaimedTiles = self:GetClaimedTiles()
+    InventoryActions:FireServer('updatedata', self.StorageData.Id, self.Id, ClaimedTiles)
+
     self.OriginPosition = self.Item.Position
 
     -- make draggable
@@ -103,7 +102,19 @@ function InventoryItem:Init()
         
         if valid then
             self.CurrentOrientation = self.Item.Rotation
-            -- Interaction Component Handler 
+            local parsedData = {["TileX"] = x, ["TileY"] = y, ["Name"] = self.Item.Name}
+
+            -- Storage Unit Logic Update Item Location
+            if not self.PendingStorageData and self.StorageData.Storage.Parent.Name == 'c' then 
+                StorageUnitActions:FireServer("updatedata", self.StorageData.Id, self.Id, parsedData)
+            end
+
+            -- Storage Unit Logic Remove Item
+            if (self.PendingStorageData and self.PendingStorageData.Storage.Parent.Name ~= "c") and self.StorageData.Storage.Parent.Name == "c" then
+                StorageUnitActions:FireServer("removeitem", self.StorageData.Id, self.Id, parsedData)
+            end 
+
+            -- Interaction Component Handler
             if self.Type then
                 local BaseComp = require(script.Parent:FindFirstChild("Component"))
                 if self.PendingStorageData and self.PendingStorageData.Type then
@@ -118,17 +129,11 @@ function InventoryItem:Init()
                     end
                 end
             end
-            -- Storage Unit Logic
-            local parsedData = {["TileX"] = x, ["TileY"] = y, ["Name"] = self.Item.Name}
+
+            -- Storage Unit Logic Add Item
             if self.PendingStorageData and self.PendingStorageData.Storage.Parent.Name == "c" then -- when we add item to storage unit
                 StorageUnitActions:FireServer("additem", self.PendingStorageData.Id, self.Id, parsedData)
             end
-            if (self.PendingStorageData and self.PendingStorageData.Storage.Parent.Name ~= "c") and self.StorageData.Storage.Parent.Name == "c" then
-                StorageUnitActions:FireServer("removeitem", self.StorageData.Id, self.Id, parsedData)
-            end
-            if not self.PendingStorageData and self.StorageData.Storage.Parent.Name == 'c' then 
-                StorageUnitActions:FireServer("updatedata", self.StorageData.Id, self.Id, parsedData)
-            end 
         else
 
             -- Origin Storage Reset
@@ -150,9 +155,17 @@ function InventoryItem:Init()
             self.Item.Rotation = self.CurrentOrientation
         end 
         self:ChangeLocationWithinStorage(tileX, tileY)
+        if valid then
+            local ClaimedTiles = self:GetClaimedTiles()
+            InventoryActions:FireServer('updatedata', self.StorageData.Id, self.Id, ClaimedTiles)
+        end
         if self.PendingStorageData then
             self.StorageData = self.PendingStorageData
             self.PendingStorageData = nil
+            if valid then
+                local ClaimedTiles = self:GetClaimedTiles()
+                InventoryActions:FireServer('updatedata', self.StorageData.Id, self.Id, ClaimedTiles)
+            end
         end
         self.OriginPosition = self.Item.Position
     end
@@ -171,6 +184,91 @@ function InventoryItem:Init()
             _G.Cache = nil
         end 
     end)
+    local frame = nil
+    self.Item.InputBegan:Connect(function(InputObject)
+        if InputObject.UserInputType == Enum.UserInputType.MouseButton2 then
+            if frame then frame:Destroy() end
+            local Mouse = Players.LocalPlayer:GetMouse()
+
+            local x = Mouse.X
+            local y = Mouse.Y 
+            local pos = Vector2.new(x, y) - self.Item.Parent.Parent.AbsolutePosition
+            frame = ReplicatedStorage.Common:WaitForChild("ItemInfo"):Clone()
+            frame.ItemFrame.ItemName.Text = self.Item.Name
+            local invWidth = self.Item:GetAttribute("InventoryWidth")
+            local invHeight = self.Item:GetAttribute("InventoryHeight")
+            frame.InfoFrame.StorageInfo.Text = invWidth and "Added Storage: ".. invWidth.. "x".. invHeight or "0x0"
+            frame.Parent = self.StorageData.Storage.Parent.Parent
+            frame.Position = UDim2.fromOffset(pos.x, pos.y)
+
+            local bool = true
+            local bool1 = true
+
+            local connection2 = nil
+            connection2 = self.Item.MouseLeave:Connect(function()
+                bool1 = true
+                if bool then
+                    frame:Destroy()
+                    connection2:Disconnect()
+                end
+            end)
+            frame.MouseEnter:Connect(function() bool = false end)
+            frame.MouseLeave:Connect(function()
+                bool = true 
+                if bool1 then
+                    frame:Destroy()
+                    connection2:Disconnect()
+                end
+            end)
+
+            if self.StorageData.Storage.Parent.Name ~= "c" then
+                frame.DeleteFrame.DeleteButton.MouseButton1Click:Connect(function()
+                    local confirmFrame = ReplicatedStorage.Common:WaitForChild("Confirmation"):Clone()
+                    confirmFrame.Parent = self.StorageData.Storage
+                    confirmFrame.Position = UDim2.fromOffset(pos.x + 25, pos.y + 25)
+                    confirmFrame.Confirmation.TextButton.MouseButton1Click:Connect(function()
+                        connection2:Disconnect()
+                        frame:Destroy()
+                        confirmFrame:Destroy()
+                        self:UnclaimCurrentTiles()
+                        local claimedTiles = self:GetClaimedTiles()
+                        InventoryActions:FireServer("updatedata", self.StorageData.Id, self.Id, claimedTiles)
+                        InventoryActions:FireServer("removeitem", self.StorageData.Id, self.Id)
+                        self.Item:Destroy()
+                    end)
+                end)
+            else 
+                frame.DeleteButton.Visible = false
+            end
+        end
+    end)
+
+    -- self.Item.MouseEnter:Connect(function()
+    --     local Mouse = Players.LocalPlayer:GetMouse()
+    --     UserInputService.MouseIconEnabled = false
+    --     -- Mouse.
+    --     local x = Mouse.X
+    --     local y = Mouse.Y 
+    --     local pos = Vector2.new(x, y) - self.Item.AbsolutePosition
+    --     local frame = Instance.new("Frame")
+    --     frame.Parent = self.StorageData.Storage
+    --     frame.Position = UDim2.fromOffset(pos.x, pos.y)
+    --     frame.Size = UDim2.fromOffset(100, 100)
+    --     local connection1 = self.Item.MouseMoved:Connect(function() 
+    --         x = Mouse.X
+    --         y = Mouse.Y 
+    --         pos = Vector2.new(x, y) - self.Item.AbsolutePosition
+    --         frame.Position = UDim2.fromOffset(pos.x, pos.y)
+    --     end)
+    --     local connection2 = nil
+    --     connection2 = self.Item.MouseLeave:Connect(function()
+    --         UserInputService.MouseIconEnabled = true
+    --         frame:Destroy()
+    --         connection1:Disconnect()
+    --         connection2:Disconnect()
+    --     end)
+
+    -- end)
 
     return self
 end
@@ -223,7 +321,6 @@ function InventoryItem:GetItemHover()
 end 
 
 function InventoryItem:GetRotate()
-    local UserInputService = game:GetService("UserInputService")
     local connection = UserInputService.InputBegan:Connect(function(input)
         if input.KeyCode == Enum.KeyCode.R then
             local width = self.Item:GetAttribute("Width")
@@ -231,8 +328,11 @@ function InventoryItem:GetRotate()
             self.Item:SetAttribute("Height", width)
             self.Item:SetAttribute("Width", height)
             self.Item.Rotation = self.Item.Rotation + 90
-            if self.Item.Rotation % 180 ~= 0 and width ~= height then 
-                self.Offset = UDim2.fromOffset((height - width)/2 * TileSize, (width-height)/2 * TileSize) -- height - width because we switched them on the previous lines
+            if self.Item.Rotation % 180 ~= 0 and width ~= height then
+                local x1 = height 
+                local x2 = width
+                self.Offset = UDim2.fromOffset((x1 - x2)/2 * TileSize, (x2-x1)/2 * TileSize) -- height - width because we switched them on the previous lines
+                print(self.Offset)
             else 
                 self.Offset = UDim2.fromOffset(0,0)
             end 
@@ -325,6 +425,24 @@ function InventoryItem:UnclaimCurrentTiles()
 	local height = self.Item:GetAttribute("Height")
 
     self.StorageData.UnclaimTiles(self.TileX, self.TileY, width, height)
+end 
+
+function InventoryItem:GetClaimedTiles()
+    local tiles = self.StorageData.Tiles
+    local data = {}
+    for x = 0, #tiles do
+        local yTiles = tiles[x]
+        for y = 0, #yTiles do
+            local Data = yTiles[y]
+            if Data["Claimed"] then
+                if not data[tostring(x)] then
+                    data[tostring(x)] = {}
+                end
+                table.insert(data[tostring(x)], y)
+            end
+        end
+    end
+    return data
 end 
 
 

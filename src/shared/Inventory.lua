@@ -21,7 +21,7 @@ function Inventory:GenerateQueue()
 	local InventoryUi = game.Players.LocalPlayer.PlayerGui.Inventory.MainFrame.GridMainFrame
 	for i = 1, #self.Queue do
 		local Data = self.Queue[i]
-		local StorageData = InventoryHandler.GenerateStorageData(Data[1][1], Data[1][2], Data[1][3], Data[1][4])
+		local StorageData = InventoryHandler.GenerateStorageData(Data[1].Width, Data[1].Height, Data[1].Type, Data[1].Id)
 		local FrameDir = StorageData.Type and InventoryUi.a.a or InventoryUi.b.b
 		local Frame = StorageData.Type and FrameDir:FindFirstChild(StorageData.Type) or FrameDir
 		if Frame then
@@ -32,6 +32,7 @@ function Inventory:GenerateQueue()
 				for _, ItemData in ipairs(ItemQueue) do
 					ItemData.StorageData = NewStorageData
 					ItemData.Item = ReplicatedStorage.Items:FindFirstChild(ItemData.Item):Clone()
+					ItemData.Type = ItemData.Item:GetAttribute("Type")
 					local Item = ItemMod.new(ItemData):Init()
 					table.insert(self.Items, Item)
 				end
@@ -98,73 +99,16 @@ function Inventory:GenerateStorage(Data, Frame)
     return Data;
 end
 
----@param p_StorageData "StorageData"
----@param p_Type StringValue 
----@param p_Item StringValue ItemName
----@param p_Id "ItemId"
-function Inventory:GenerateItemData(p_StorageData, p_Type, p_Item, p_Id) 
+function Inventory:GenerateItemData(p_StorageData, p_Item, p_Id) 
 	if not p_Id or not p_StorageData then return nil end 
 	local Data = {}
 	Data.Storage = p_StorageData
-	Data.Id = p_Id
-	Data.Type = p_Type or nil
+	Data.Id = tostring(p_Id)
 	Data.Item = p_Item or nil
 	Data.TileX = nil 
 	Data.TileY = nil
-	table.insert(self.Items, Data)
+	self.Items[Data.Id] = Data
 	return Data
 end 
 
-function Inventory:GetDataFromStorage(Storage)
-	for i = 1, #self.Storages, 1 do
-		local CurrentStorageData = self.Storages[i]
-		if CurrentStorageData.Storage == Storage then
-            return CurrentStorageData;
-        end
-	end
-end
-
-function Inventory:AppendStorageToQueue(StorageData)
-	local Data = {StorageData}
-	table.insert(self.Queue, Data)
-	return StorageData
-end
-
-function Inventory:AppendStorageArrayToQueue(StorageDataArray)
-	for Index, Data in ipairs(StorageDataArray) do
-		self:AppendStorageToQueue(Data)
-	end
-end
-
-function Inventory:AppendItemToQueue(ItemData)
-	-- find the location of storage data in the queue
-	for _, v in ipairs(self.Queue) do
-		if v[1] == ItemData.Storage then
-			if not v[2] then
-				v[2] = {}
-			end
-			table.insert(v[2], ItemData)
- 		end
-	end
-end
-
-function Inventory:AppendArrayToItemQueue(ItemDataArray)
-	for _, Data in ipairs(ItemDataArray) do
-		self:AppendItemToQueue(Data)
-	end
-end
-
 return Inventory
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,5 +1,6 @@
 -- Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 -- Libs
 
@@ -10,8 +11,11 @@ local InventoryHandler = {}
 -- Utility
 
 InventoryHandler.AppendStorageToQueue = function(Inv, StorageData)
-	local Data = {StorageData}
+	local Data = {StorageData} -- convert to table to add items inside later
 	table.insert(Inv.Queue, Data)
+	if RunService:IsServer() and StorageData.Id then
+		table.insert(Inv.Storages, StorageData)
+	end	
 	return StorageData
 end
 
@@ -43,7 +47,37 @@ InventoryHandler.AppendStorageToRemovalQueue = function(Inv, StorageId)
 	table.insert(Inv.RemovalQueue, StorageId)
 end
 
+function InventoryHandler.CheckFreeSpace(StorageData, Width, Height)
+	for Y = 0, #StorageData.Tiles[0] - Height + 1 do
+		local xTiles = StorageData.Tiles
+		for X = 0, #xTiles - Width + 1 do
+			for i = X, X + Width -1 do
+				local bool = false
+				for j = Y, Y + Height -1 do
+					if StorageData.Tiles[i][j]["Claimed"] then
+						bool = true
+						break
+					end
+					if i == X + Width - 1 and j == Y + Height - 1 then
+						return X, Y
+					end 
+				end
+				if bool then break end
+			end
+		end
+	end
+end 
+
+function InventoryHandler.CheckFreeSpaceInventoryWide(Inv, Width, Height)
+	local storages = Inv.Storages
+	for _, data in ipairs(storages) do
+		local x, y = InventoryHandler.CheckFreeSpace(data, Width, Height)
+		if x and y then return data,x,y end
+	end
+end 	
+
 -- Data Generation
+
 function InventoryHandler.GenerateStorageUnitData(p_Width, p_Height, p_Id, p_Accessible)
 	if not p_Id or not p_Width or not p_Height then return nil end
 	local data = {}
@@ -58,7 +92,9 @@ function InventoryHandler.GenerateStorageData(Width, Height, Type, Id)
 	local data = {}
 	data.Storage = nil
 	data.Type = Type or nil
-	data.Id = Id or nil -- we need the id for when we get new storage on equip to delete it after unequipping
+	data.Id = Id or nil
+	data.Width = Width
+	data.Height = Height
 	
 	data.Tiles = {}
 
@@ -106,12 +142,6 @@ function InventoryHandler.GenerateStorageData(Width, Height, Type, Id)
 	
 	return data
 end
-
--- Data Getters 
-
-function InventoryHandler.GetDataFromStorage(StorageFrame)
-
-end 	
 
 -- Modified Function for generating Storage Units
 function InventoryHandler:GenerateStorage(Data, Frame)
