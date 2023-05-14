@@ -1,5 +1,6 @@
 --- Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 
@@ -59,7 +60,6 @@ end)
 SetData.Event:Connect(function(Plr, p_InventoryData, p_UnitData)
     if not (Plr and (p_InventoryData or p_UnitData)) then return nil end
 
-
     ClientEvents.GetStorageData:FireClient(Plr, p_InventoryData, p_UnitData) -- send data to client
     if p_InventoryData then
         p_InventoryData.Queue = {} -- reset the queue so the client wont duplicate the storages
@@ -104,6 +104,7 @@ ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Item, Id)
     end
 end)
 
+local unitConnection = nil
 ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageUnitId, p_ItemId, ItemData)
     -- get the storage unit  
     local StorageUnit 
@@ -116,6 +117,9 @@ ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageU
     if Action == "deauthorize" then
         StorageUnit:Deauthorize()
         PlayerStorageData[Player.UserId].StorageUnit = nil
+        if unitConnection then
+            unitConnection:Disconnect()
+        end
     elseif Action == "additem" then
         local InventoryData = PlayerStorageData[Player.UserId]
         local itemData = nil
@@ -126,18 +130,20 @@ ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageU
                 break
             end
         end
+        if Player.UserId ~= StorageUnit.User then return nil end 
         if not itemData then return nil end
         itemData.TileX = ItemData.TileX
         itemData.TileY = ItemData.TileY
         itemData.Name = ItemData.Name
         StorageUnit:InsertItem(itemData)
     elseif Action == "removeitem" then
+        if Player.UserId ~= StorageUnit.User then return nil end 
         local InventoryData = PlayerStorageData[Player.UserId]
         local itemData = StorageUnit:RemoveItem(p_ItemId)
         if not itemData then return nil end
         table.insert(InventoryData.Items, itemData)
     elseif Action == "updatedata" then
-        print(ItemData) 
+        if Player.UserId ~= StorageUnit.User then return nil end 
         local itemData = StorageUnit.Items[tostring(p_ItemId)]
         itemData.TileX = ItemData.TileX
         itemData.TileY = ItemData.TileY
@@ -173,12 +179,27 @@ for _, Part in ipairs(StorageUnitParts) do
                 end
 
                 local PlayerStorageUnit = PlayerInventory.StorageUnit -- get the player inventory for holding storage unit data
-                if PlayerStorageUnit then -- check if player is already authorized in another storage unit
+                if PlayerStorageUnit and PlayerStorageUnit.User then -- check if player is already authorized in another storage unit
                     StorageUnit:Deauthorize()
                     return nil
                 end
-                print(StorageUnit:GetData())
-                SetData:Fire(Player, nil, StorageUnit:GetData()) 
+
+                SetData:Fire(Player, nil, StorageUnit:GetData())
+
+                local character = Player.Character
+                unitConnection = RunService.Heartbeat:Connect(function(dt)
+                    if character.Humanoid.MoveDirection.Magnitude > 0 then -- character is moving
+                        -- check the distance from the character to the storage unit
+                        local magnitude = math.abs((Part.Position - character.HumanoidRootPart.Position).Magnitude)
+                        if magnitude > 25 then
+                            print("deauthorized")
+                            StorageUnit:Deauthorize()
+                            unitConnection:Disconnect()
+                            SetData:Fire(Player, nil, StorageUnit:GetData())
+                        end
+                    end
+                end)
+
             end)
         end 
     end 
