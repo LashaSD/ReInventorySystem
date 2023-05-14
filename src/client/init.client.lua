@@ -46,17 +46,20 @@ Events.GetStorageData.OnClientEvent:Connect(function(ServerPlayerStorage, Server
 	end
 
 	if ServerPlayerUnitData then
+		-- check if it's queued for deauthorization
+		if ServerPlayerUnitData.AuthorizationData == 'deauthorize' and PlayerInventory.StorageUnit then
+			PlayerInventory.StorageUnit:Deauthorize()
+			PlayerInventory.StorageUnit.AuthorizationData = nil
+			PlayerInventory.StorageUnit = nil
+			CloseInventory()
+			return nil
+		end
+
 		local PlayerStorageUnit = StorageUnitMod.new(ServerPlayerUnitData) -- create a client side storage unit object from server passed data
 		PlayerInventory.StorageUnit = PlayerStorageUnit
 		PlayerInventory.StorageUnit:GenerateUI(PlayerInventory) -- build ui grid 
 		if not InventoryUi.MainFrame.Visible then OpenInventory() end  -- if the inventory isnt visible open it
-	elseif PlayerInventory.StorageUnit then -- remove the ui from client
-		--PlayerInventory.StorageUnit:ClearUI()
 	end
-
-end)
-
-Events.StorageUnit.OnClientEvent:Connect(function(StorageUnitData) 
 
 end)
 
