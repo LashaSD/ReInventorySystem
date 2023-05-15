@@ -16,7 +16,16 @@ local ClientEvents = ReplicatedStorage.Common.Events
 --- Events
 local SetData = events.SetStorageData
 
---- Util Functions 
+--- Vars
+
+local PlayerStorageData = {} -- Dict<UserId, Inventory>
+local StorageUnits = {}
+
+local ItemId = 0
+local StorageId = 0
+local unitId = 0
+
+--- Util Functions
 
 local function includes (tab, val)
     for index, value in ipairs(tab) do
@@ -28,14 +37,26 @@ local function includes (tab, val)
     return false
 end
 
+-- returns the storage id and increments it by 1
+local function getStorageId()
+    local i = StorageId
+    StorageId = StorageId + 1
+    return i
+end
 
---- Vars 
+-- returns the item id and increments it by 1
+local function getItemId()
+    local i = ItemId
+    ItemId = ItemId + 1
+    return i
+end
 
-local PlayerStorageData = {} -- Dict<UserId, Inventory>
-local StorageUnits = {}
-
-local ItemId = 0
-local StorageId = 0
+-- returns the unit id and increments it by 1
+local function getUnitId()
+    local i = unitId
+    unitId = unitId + 1
+    return i
+end 
 
 
 players.PlayerAdded:Connect(function(plr)
@@ -51,29 +72,24 @@ players.PlayerAdded:Connect(function(plr)
     -- local StorageData1 = {8,8}
     -- local StorageData2 = {5, 8}
 
-    local HeadData = InventoryHandler.GenerateStorageData(3, 3, "Head")
-    local TorsoData = InventoryHandler.GenerateStorageData(3,3, "Torso")
-    local LegsData = InventoryHandler.GenerateStorageData(3,3, "Legs")
-    local BackData = InventoryHandler.GenerateStorageData(3,3, "Back")
-    local PrimaryWeaponData = InventoryHandler.GenerateStorageData(6,3, "Primary")
-    local SecondaryWeaponData = InventoryHandler.GenerateStorageData(3,3, "Secondary")
+    -- If you rename the types of the following storages, also change the name of the frames in collumn A
+    local HeadData = InventoryHandler.GenerateStorageData(3, 3, "Headwear", getStorageId())
+    local TorsoData = InventoryHandler.GenerateStorageData(3,3, "Shirt", getStorageId())
+    local LegsData = InventoryHandler.GenerateStorageData(3,3, "Pants", getStorageId())
+    local BackData = InventoryHandler.GenerateStorageData(3,3, "Backpack", getStorageId())
+    local PrimaryWeaponData = InventoryHandler.GenerateStorageData(6,3, "Primary", getStorageId())
+    local SecondaryWeaponData = InventoryHandler.GenerateStorageData(3,3, "Secondary", getStorageId())
 
-    local StorageData1 = InventoryHandler.GenerateStorageData(8,8, nil, StorageId)
-    StorageId = StorageId + 1
-    local StorageData2 = InventoryHandler.GenerateStorageData(5,8, nil, StorageId)
-    StorageId = StorageId + 1
+    local StorageData1 = InventoryHandler.GenerateStorageData(8,8, nil, getStorageId())
+    local StorageData2 = InventoryHandler.GenerateStorageData(5,8, nil, getStorageId())
 
-    
+
     InventoryHandler.AppendStorageArrayToQueue(PlayerInventory, {HeadData, TorsoData, LegsData, BackData, PrimaryWeaponData, SecondaryWeaponData, StorageData1, StorageData2})
 
-    local ItemData = PlayerInventory:GenerateItemData(StorageData1, "Helmet", ItemId)
-    ItemId = ItemId + 1
-    local ItemData1 = PlayerInventory:GenerateItemData(StorageData2, "Robux", ItemId)
-    ItemId = ItemId + 1
-    local ItemData2 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley", ItemId)
-    ItemId = ItemId + 1
-    local ItemData3 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley1", ItemId)
-    ItemId = ItemId + 1
+    local ItemData = PlayerInventory:GenerateItemData(StorageData1, "Helmet", getItemId())
+    local ItemData1 = PlayerInventory:GenerateItemData(StorageData2, "Robux", getItemId())
+    local ItemData2 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley", getItemId())
+    local ItemData3 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley1", getItemId())
 
     InventoryHandler.AppendItemArrayToQueue(PlayerInventory, {ItemData, ItemData1, ItemData2, ItemData3})
 
@@ -87,7 +103,7 @@ ClientEvents.GetStorageData.OnServerEvent:Connect(function(Player)
 end)
 
 -- Bindable Event that updates and synces player inventory data on server and client
-SetData.Event:Connect(function(Plr, p_InventoryData, p_UnitData)
+SetData.Event:Connect(function(Plr, p_InventoryData, p_UnitData, p_StorageDataIndex)
     if not (Plr and (p_InventoryData or p_UnitData)) then return nil end
     local storages = PlayerStorageData[Plr.UserId].Storages
 
@@ -102,44 +118,85 @@ SetData.Event:Connect(function(Plr, p_InventoryData, p_UnitData)
     end
     PlayerStorageData[Plr.UserId] = InventoryData
     PlayerStorageData[Plr.UserId].Storages = storages
-end)
-
-ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, Item, Id) 
-    local plrInventory = PlayerStorageData[Player.UserId]
-    if plrInventory then
-        for i, ItemData in ipairs(plrInventory.Items) do
-            if ItemData.Type == Type and ItemData.Id == Id then
-                local width = Item.Width
-                local height = Item.Height
-                if width and height then
-                    local AddedStorage = InventoryHandler.GenerateStorageData(width, height, nil, "ASBN"..ItemData.Id)
-                    InventoryHandler.AppendStorageToQueue(plrInventory, AddedStorage)
-                    SetData:Fire(Player, plrInventory)
-                end
-            end
-        end
+    if p_StorageDataIndex then
+        PlayerStorageData[Plr.UserId].Storages[p_StorageDataIndex].EquippedSlot = p_InventoryData.Storages[p_StorageDataIndex].EquippedSlot
     end
 end)
 
-ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Item, Id) 
+ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, Id, p_StorageId)
     local plrInventory = PlayerStorageData[Player.UserId]
-    if plrInventory then
-        -- search the item 
-          for _, ItemData in ipairs(plrInventory.Items) do
-            if ItemData.Type == Type and ItemData.Id == Id then -- item exists on the server and it can be equipped
-                table.insert(plrInventory.RemovalQueue, "ASBN"..Id)
-                SetData:Fire(Player, plrInventory)
-                PlayerStorageData[Player.UserId].RemovalQueue = {}
-                return
-            end
+    if not plrInventory or not Id or not p_StorageId then return nil end
+
+    local StorageData = nil
+    local StorageDataIndex = nil
+    for index, data in ipairs(plrInventory.Storages) do
+        if data.Id == p_StorageId then
+            StorageData = data
+            StorageDataIndex = index
+            break
         end
+    end
+
+    if not StorageData then
+        print("Couldn't find Storage with ID: ".. p_StorageId)
+        return nil
+    end
+
+    if StorageData.EquippedSlot then
+        print("Item Already Equipped")
+        return nil
+    end
+
+    
+    local ItemData = plrInventory.Items[tostring(Id)]
+    if ItemData.Type == Type then -- item exists on the server and it can be equipped
+        local width = ItemInfo.Width
+        local height = ItemInfo.Height
+        StorageData.EquippedSlot = ItemData
+        if width and height then -- valid to equip
+            local AddedStorage = InventoryHandler.GenerateStorageData(width, height, nil, "ASBN"..ItemData.Id)
+            InventoryHandler.AppendStorageToQueue(plrInventory, AddedStorage)
+        end
+        plrInventory.Storages[StorageDataIndex] = StorageData
+        SetData:Fire(Player, plrInventory, nil, StorageDataIndex)
+    end
+end)
+
+ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Id, p_StorageId)
+    local plrInventory = PlayerStorageData[Player.UserId]
+    if not plrInventory or not Id or not p_StorageId then return nil end
+
+    local StorageData = nil
+    for _, data in ipairs(plrInventory.Storages) do
+        if data.Id == p_StorageId then
+            StorageData = data
+            break
+        end
+    end
+
+    if not StorageData then
+        print("Couldn't find Storage with ID: ".. p_StorageId)
+        return nil
+    end
+
+    if not StorageData.EquippedSlot then
+        print("Item is already unequipped")
+        return nil
+    end
+
+    local ItemData = plrInventory.Items[tostring(Id)]
+    if ItemData.Type == Type and StorageData.EquippedSlot.Id == Id then -- item exists on the server and it can be equipped
+        StorageData.EquippedSlot = nil
+        table.insert(plrInventory.RemovalQueue, "ASBN"..Id)
+        SetData:Fire(Player, plrInventory)
+        PlayerStorageData[Player.UserId].RemovalQueue = {}
     end
 end)
 
 local unitConnection = nil
 ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageUnitId, p_ItemId, ItemData)
-    -- get the storage unit  
-    local StorageUnit 
+    -- get the storage unit
+    local StorageUnit
     for _, unit in ipairs(StorageUnits) do
         if unit.Id == StorageUnitId then
             StorageUnit = unit
@@ -162,24 +219,24 @@ ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageU
                 break
             end
         end
-        if Player.UserId ~= StorageUnit.User then return nil end 
+        if Player.UserId ~= StorageUnit.User then return nil end
         if not itemData then return nil end
-        itemData.TileX = ItemData.TileX
-        itemData.TileY = ItemData.TileY
-        itemData.Name = ItemData.Name
+        for k, v in pairs(ItemData) do
+            itemData[k] = v
+        end
         StorageUnit:InsertItem(itemData)
     elseif Action == "removeitem" then
-        if Player.UserId ~= StorageUnit.User then return nil end 
+        if Player.UserId ~= StorageUnit.User then return nil end
         local InventoryData = PlayerStorageData[Player.UserId]
         local itemData = StorageUnit:RemoveItem(p_ItemId)
         if not itemData then return nil end
-        table.insert(InventoryData.Items, itemData)
+        InventoryData.Items[tostring(p_ItemId)] = itemData
     elseif Action == "updatedata" then
-        if Player.UserId ~= StorageUnit.User then return nil end 
+        if Player.UserId ~= StorageUnit.User then return nil end
         local itemData = StorageUnit.Items[tostring(p_ItemId)]
-        itemData.TileX = ItemData.TileX
-        itemData.TileY = ItemData.TileY
-        itemData.Name = ItemData.Name
+        for k, v in pairs(ItemData) do
+            itemData[k] = v
+        end
     end
 end)
 
@@ -192,10 +249,16 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
             StorageData = Data
         end
     end
+    if not StorageData then
+        print("Failed to fetch Storagedata and perform Action: ".. Action)
+        return
+    end
     if Action == "updatedata" then
         for x, yTiles in ipairs(StorageData.Tiles) do
             for y, Data in ipairs(yTiles) do
-                if not data[tostring(x)] then continue end
+                if not data[tostring(x)] then
+                    continue
+                end
                 Data["Claimed"] = includes(data[tostring(x)], y)
             end
         end
@@ -207,30 +270,28 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
     end
 end)
 
--- Generate Storage Units 
+-- Generate Storage Units
 local StorageUnitParts = CollectionService:GetTagged("StorageUnit")
-local id = 0
 for index, Part in ipairs(StorageUnitParts) do
     local width = Part:GetAttribute("InventoryWidth") -- <Number>
     local height = Part:GetAttribute("InventoryHeight") -- <Number>
-    if width and height then 
+    if width and height then
         local accessible = Part:GetAttribute("Accessible") -- <Bool>
-        local UnitData = InventoryHandler.GenerateStorageUnitData(width, height, id, accessible)
-        id = id + 1
+        local UnitData = InventoryHandler.GenerateStorageUnitData(width, height, getUnitId(), accessible)
         local StorageUnit = StorageUnitMod.new(UnitData)
         table.insert(StorageUnits, StorageUnit)
-         
-        -- add a way for player to open storage units 
+
+        -- add a way for player to open storage units
         if accessible then
             local ClickDetector = Instance.new("ClickDetector")
-            if Part:IsA("Model") then Part = Part:FindFirstChild("Main") end 
+            if Part:IsA("Model") then Part = Part:FindFirstChild("Main") end
             ClickDetector.Parent = Part
             ClickDetector.MouseClick:Connect(function(Player)
                 local response = StorageUnit:Authorize(Player)
-                if not response then return nil end     
+                if not response then return nil end
 
                 local PlayerInventory = PlayerStorageData[Player.UserId] -- get Player Storage Data
-                if not PlayerInventory then 
+                if not PlayerInventory then
                     StorageUnit:Deauthorize()
                     return nil
                 end
@@ -255,24 +316,8 @@ for index, Part in ipairs(StorageUnitParts) do
                             SetData:Fire(Player, nil, StorageUnit:GetData())
                         end
                     end
-                end) 
+                end)
             end)
-        else
-            -- local ItemName = Part:GetAttribute("ItemName")
-            -- local ItemPart = Part:FindFirstChild("ItemPart")
-            -- if not ItemPart then
-            --     table.remove(StorageUnits, index)
-            --     return nil
-            -- end
-            -- local ItemData = P
-            -- ItemPart.Touched:Connect(function(Hit) 
-            --     local Character = Hit.Parent
-            --     if not Character:FindFirstChild("Humanoid") then return nil end
-            --     local Player = players:GetPlayerFromCharacter(Character)
-            --     local StorageData = InventoryHandler.CheckFreeSpaceInventoryWide()
-            --     if not ItemData then return nil end
-            --     StorageUnit:TransferItem(PlayerStorageData[Player.UserId], ItemName)
-            -- end)
-        end 
-    end 
+        end
+    end
 end

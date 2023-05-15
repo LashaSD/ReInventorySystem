@@ -1,11 +1,11 @@
 local Component = {}
 
 function Component.Equipped()
-    print("Torso Equipped")
+    print("Helmet Equipped")
 end 
 
 function Component.Unequipped()
-    print("Torso Unequipped")
+    print("Helmet Unequipped")
 end 
 
 return Component 

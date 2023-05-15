@@ -14,7 +14,9 @@ local Events = ReplicatedStorage.Common.Events
 local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
 
+-- Ui
 local InventoryUi = Player.PlayerGui:WaitForChild("Inventory")
+local OpenBtn = InventoryUi.Btn.Btn
 
 -- Client Side Inventory
 local PlayerInventory = InventoryMod.new()
@@ -31,6 +33,7 @@ end
 
 local function TriggerInventory()
 	InventoryUi.MainFrame.Visible = not InventoryUi.MainFrame.Visible
+	OpenBtn.Parent.Visible = not InventoryUi.MainFrame.Visible
 end 
 
 -- sync Client Data with Server Data (replication)
@@ -58,7 +61,7 @@ Events.GetStorageData.OnClientEvent:Connect(function(ServerPlayerStorage, Server
 		local PlayerStorageUnit = StorageUnitMod.new(ServerPlayerUnitData) -- create a client side storage unit object from server passed data
 		PlayerInventory.StorageUnit = PlayerStorageUnit
 		PlayerInventory.StorageUnit:GenerateUI(PlayerInventory) -- build ui grid 
-		if not InventoryUi.MainFrame.Visible then OpenInventory() end  -- if the inventory isnt visible open it
+		if not InventoryUi.MainFrame.Visible then TriggerInventory() end  -- if the inventory isnt visible open it
 	end
 
 end)
@@ -67,11 +70,24 @@ end)
 -- Inventory Ui Open Bind
 UserInputService.InputBegan:Connect(function(input) 
 	if input.KeyCode == Enum.KeyCode.Tab then
-		TriggerInventory()	
+		TriggerInventory()
 		if not InventoryUi.MainFrame.Visible then
 			if PlayerInventory.StorageUnit then
 				PlayerInventory.StorageUnit:Deauthorize()
+				PlayerInventory.StorageUnit.AuthorizationData = nil
+				PlayerInventory.StorageUnit = nil
 			end
 		end 
 	end
+end)
+
+OpenBtn.MouseButton1Click:Connect(function()
+	TriggerInventory()
+	if not InventoryUi.MainFrame.Visible then
+		if PlayerInventory.StorageUnit then
+			PlayerInventory.StorageUnit:Deauthorize()
+			PlayerInventory.StorageUnit.AuthorizationData = nil
+			PlayerInventory.StorageUnit = nil
+		end
+	end 
 end)

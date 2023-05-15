@@ -13,7 +13,7 @@ local InventoryHandler = {}
 InventoryHandler.AppendStorageToQueue = function(Inv, StorageData)
 	local Data = {StorageData} -- convert to table to add items inside later
 	table.insert(Inv.Queue, Data)
-	if RunService:IsServer() and StorageData.Id then
+	if RunService:IsServer() then
 		table.insert(Inv.Storages, StorageData)
 	end	
 	return StorageData
@@ -71,10 +71,29 @@ end
 function InventoryHandler.CheckFreeSpaceInventoryWide(Inv, Width, Height)
 	local storages = Inv.Storages
 	for _, data in ipairs(storages) do
+		if data.Type then continue end
 		local x, y = InventoryHandler.CheckFreeSpace(data, Width, Height)
 		if x and y then return data,x,y end
 	end
 end 	
+
+function InventoryHandler.EvaluateGridSquares(Inv, StorageData)
+	local takenSquares = {}
+	for id, data in pairs(Inv.Items) do
+		-- this item is in the desired storage 
+		if data.StorageData.Id == StorageData.Id then 
+			local width = data.Item:GetAttribute("Width")
+			local height = data.Item:GetAttribute("Height")
+			for x = data.TileX, data.TileX + width -1 do
+				for y = data.TileY, data.TileY + height -1 do
+					table.insert(takenSquares, {x, y})
+				end
+			end
+		end
+	end
+
+	return takenSquares
+end
 
 -- Data Generation
 
@@ -89,9 +108,11 @@ function InventoryHandler.GenerateStorageUnitData(p_Width, p_Height, p_Id, p_Acc
 end
 
 function InventoryHandler.GenerateStorageData(Width, Height, Type, Id)
+	if not Id then print("Id is required to generate storage data"); return nil end
 	local data = {}
 	data.Storage = nil
 	data.Type = Type or nil
+	data.EquippedSlot = nil -- only for storages with Type
 	data.Id = Id or nil
 	data.Width = Width
 	data.Height = Height
@@ -154,11 +175,7 @@ function InventoryHandler:GenerateStorage(Data, Frame)
 
 	-- check for storage type and get storage
 	local Storage = script.Parent:WaitForChild("Storage"):Clone()
-	local InvisibleFrame = Frame:FindFirstChild("InvisibleFrame1")
-	local clone = InvisibleFrame:Clone()
-	InvisibleFrame:Destroy()
 	Storage.Parent = Frame
-	clone.Parent = Frame
 	Storage.Size = UDim2.new(0, self.TileSize * Width, 0, self.TileSize * Height)
 
 	-- storage data

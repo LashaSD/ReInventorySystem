@@ -13,17 +13,17 @@ local Components = script.Parent.Components -- Directory of Components
 local Component = {}
 
 local ClothingFunction = {
-    function(Type, Item, Id)
+    function(Type, Item, Id, StorageId)
         -- Equip
         local Data = {}
         Data.Width = Item:GetAttribute("InventoryWidth")
         Data.Height = Item:GetAttribute("InventoryHeight")
-        ClothingEquipEvent:FireServer(Type, Data, Id)
+        ClothingEquipEvent:FireServer(Type, Data, Id, StorageId)
         print("Put On Clothing")
     end,
-    function(Type, Item, Id)
+    function(Type, Item, Id, StorageId)
         -- Unequip
-        ClothingUnequipEvent:FireServer(Type, Item, Id)
+        ClothingUnequipEvent:FireServer(Type, Id, StorageId)
         print("Take Off Clothing")
     end,
 }
@@ -40,18 +40,18 @@ local WeaponFunction = {
 }
 
 local Actions = {
-    ["Head"] = ClothingFunction,
-    ["Torso"] = ClothingFunction,
-    ["Legs"] = ClothingFunction,
-    ["Back"] = ClothingFunction,
+    ["Headwear"] = ClothingFunction,
+    ["Shirt"] = ClothingFunction,
+    ["Pants"] = ClothingFunction,
+    ["Backpack"] = ClothingFunction,
     ["Primary"] = WeaponFunction,
     ["Secondary"] = WeaponFunction
 }
 
-function Component.Equipped(Type, Item, Id) 
+function Component.Equipped(Type, Item, Id, StorageId)
     if Actions[Type] then 
-        Actions[Type][1](Type, Item, Id)
-    end 
+        Actions[Type][1](Type, Item, Id, StorageId)
+    end
 
     local Directory = Components:FindFirstChild(Item.Name)
     if not Directory then return end
@@ -59,12 +59,11 @@ function Component.Equipped(Type, Item, Id)
     local Comp= require(Directory)
     if Comp then
         Comp.Equipped()
-        print('\n')
     end
 end 
 
-function Component.Unequipped(Type, Item, Id) 
-    if Actions[Type] then Actions[Type][2](Type, Item, Id) end
+function Component.Unequipped(Type, Item, Id, StorageId)
+    if Actions[Type] then Actions[Type][2](Type, Item, Id, StorageId) end
 
     local Directory = Components:FindFirstChild(Item.Name)
     if not Directory then return end
@@ -72,7 +71,7 @@ function Component.Unequipped(Type, Item, Id)
     local Comp= require(Directory)
     if Comp then
         Comp.Unequipped()
-        print('\n')
+
     end
 end 
 

@@ -1,4 +1,5 @@
 -- Services 
+local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -13,6 +14,18 @@ local ClientEvents = ReplicatedStorage.Common.Events
 local GetData = ClientEvents:WaitForChild("GetStorageData")
 local StorageUnitActions = ClientEvents:WaitForChild("StorageUnit")
 
+
+-- util functions
+
+local function includes (tab, val1, val2)
+    for index, value in ipairs(tab) do
+        if value[1] == val1 and value[2] == val2 then
+            return true
+        end
+    end
+
+    return false
+end
 
 local StorageUnit = {}
 StorageUnit.__index = StorageUnit
@@ -38,15 +51,6 @@ function StorageUnit:RemoveItem(ItemId)
     local itemData = self.Items[tostring(ItemId)]
     self.Items[tostring(ItemId)] = nil
     return itemData
-end 
-
-function StorageUnit:TransferItem(PlayerInventory, ItemName)
-    -- if self.Accessible then return nil end
-    -- local ItemObj = ReplicatedStorage.Items:FindFirstChild(ItemName)
-    -- local width = ItemObj:GetAttribute("Width")
-    -- local height = ItemObj:GetAttribute("Height")
-    -- local StorageData, x, y = InventoryHandler.CheckFreeSpaceInventoryWide(PlayerInventory, width, height)
-    -- local ItemData = PlayerInventory:GenerateItemData(StorageData, ItemObj, )
 end
 
 function StorageUnit:GetData()
@@ -60,7 +64,7 @@ function StorageUnit:GetData()
     return Data
 end 
 
-function StorageUnit:Authorize(Player) 
+function StorageUnit:Authorize(Player)
     if self.User then return false end
 
     if RunService:IsServer() and self.AuthorizationData == 'deauthorize' then
@@ -93,12 +97,30 @@ function StorageUnit:GenerateUI(PlayerInventory)
     -- ITEM UI
 
     for id, data in pairs(self.Items) do
-        local itemData = PlayerInventory:GenerateItemData(StorageData, nil, data.Id)
-        itemData.Item = ReplicatedStorage.Items:FindFirstChild(data.Name):Clone()
+        local item = ReplicatedStorage.Items:FindFirstChild(data.Name):Clone()
+        local itemData = PlayerInventory:GenerateItemData(StorageData, item.Name, data.Id)
         itemData.StorageData = StorageData
         itemData.TileX = data.TileX
         itemData.TileY = data.TileY
-        local Item1 = Item.new(itemData):Init()
+        itemData.Rotation = data.Rotation
+        itemData.Offset = data.Offset
+        itemData.Item = item
+        Item.new(itemData):Init()
+        if data.Rotation % 180 ~= 0 then
+            local width = item:GetAttribute("Width")
+            local height = item:GetAttribute("Height")
+            itemData.Item:SetAttribute("Width", height)
+            itemData.Item:SetAttribute("Height", width)
+        end
+    end
+    if self.Items then
+        local squares = InventoryHandler.EvaluateGridSquares(PlayerInventory, StorageData)
+        for x = 0, #StorageData.Tiles do
+            for y = 0, #StorageData.Tiles[0] do
+                local TileData = StorageData.Tiles[x][y]
+                TileData.Claimed = includes(squares, x, y)
+            end
+        end
     end
 end
 
@@ -109,7 +131,7 @@ function StorageUnit:ClearUI()
     local StorageData = InventoryHandler.GenerateStorageData(self.Width, self.Height, nil, self.Id)
     local FrameDir = InventoryUi.c.c
     for _, Child in ipairs(FrameDir:GetChildren()) do
-        if Child:IsA("Frame") and Child.Name ~= "InvisibleFrame" then Child:Destroy() end
+        if Child:IsA("Frame") and Child.Name ~= "InvisibleFrame" and Child.Name ~= "InvisibleFrame1" then Child:Destroy() end
     end
 end
 

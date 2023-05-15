@@ -7,7 +7,7 @@ Inventory.__index = Inventory
 
 function Inventory.new()
 	local self = setmetatable({}, Inventory)
-	self.Storages = {}
+	self.Storages = {} -- Array<StorageData>
 	self.Queue = {} -- Array< Array< StorageData, Array<ItemData> > >
 	self.RemovalQueue = {}
 	self.Items = {} -- Array<ItemData>
@@ -26,6 +26,13 @@ function Inventory:GenerateQueue()
 		local Frame = StorageData.Type and FrameDir:FindFirstChild(StorageData.Type) or FrameDir
 		if Frame then
 			local NewStorageData = self:GenerateStorage(StorageData, Frame)
+			if not StorageData.Type then
+				local InvisibleFrame = Frame:FindFirstChild("InvisibleFrame1")
+				local clone = InvisibleFrame:Clone()
+				clone.Name = "InvisibleFrame1"
+				clone.Parent = NewStorageData.Storage.Parent
+				InvisibleFrame:Destroy()
+			end
 			-- generate all the items 
 			local ItemQueue = Data[2]
 			if ItemQueue then
@@ -34,7 +41,7 @@ function Inventory:GenerateQueue()
 					ItemData.Item = ReplicatedStorage.Items:FindFirstChild(ItemData.Item):Clone()
 					ItemData.Type = ItemData.Item:GetAttribute("Type")
 					local Item = ItemMod.new(ItemData):Init()
-					table.insert(self.Items, Item)
+					self.Items[tostring(Item.Id)] = Item
 				end
 			end
 		end
@@ -49,7 +56,22 @@ function Inventory:EmptyRemovalQueue()
 		-- find the storage with given id 
 		for Index, Storage in ipairs(self.Storages) do
 			if Storage.Id == removalId then
+				local items = self.Items 
 				table.remove(self.Storages, Index)
+				for id, data in pairs(items) do
+					if data.StorageData.Id == Storage.Id then
+						local width = data.Width or data.Item:GetAttribute("Width")
+						local height = data.Height or data.Item:GetAttribute("Height")
+						local SData, x, y = InventoryHandler.CheckFreeSpaceInventoryWide(self, width, height)
+						if SData and x and y then
+							data.StorageData = SData 
+							data.Item.Parent = SData.Storage
+							data:ChangeLocationWithinStorage(x, y)
+						else 
+							data:Destroy()
+						end
+					end
+				end
 				Storage.Storage:Destroy()
 				return
 			end
@@ -60,7 +82,7 @@ end
 
 function Inventory:GenerateStorage(Data, Frame)
 	-- get tile data
-    local Tile = script.Parent:WaitForChild("Tile")
+    local Tile = script.Parent.UiFrames:WaitForChild("Tile")
 	self.TileSize = Tile.Size.X.Offset
 
 	local Width = #Data.Tiles + 1
@@ -73,7 +95,7 @@ function Inventory:GenerateStorage(Data, Frame)
 		Storage = Frame
 		Storage.Size = UDim2.new(0, self.TileSize * Width, 0, self.TileSize * Height)
 	else
-		Storage = script.Parent:WaitForChild("Storage"):Clone()
+		Storage = script.Parent.UiFrames:WaitForChild("Storage"):Clone()
 		Storage.Parent = Frame
 		Storage.Size = UDim2.new(0, self.TileSize * Width, 0, self.TileSize * Height)
 	end
@@ -105,6 +127,7 @@ function Inventory:GenerateItemData(p_StorageData, p_Item, p_Id)
 	Data.Storage = p_StorageData
 	Data.Id = tostring(p_Id)
 	Data.Item = p_Item or nil
+	Data.Type = ReplicatedStorage.Items:FindFirstChild(p_Item) and ReplicatedStorage.Items:FindFirstChild(p_Item):GetAttribute("Type")
 	Data.TileX = nil 
 	Data.TileY = nil
 	self.Items[Data.Id] = Data
