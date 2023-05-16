@@ -71,17 +71,17 @@ players.PlayerAdded:Connect(function(plr)
     local PrimaryWeaponData = InventoryHandler.GenerateStorageData(6,3, "Primary", getStorageId())
     local SecondaryWeaponData = InventoryHandler.GenerateStorageData(3,3, "Secondary", getStorageId())
 
-    local StorageData1 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId())
-    local StorageData2 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId())
+    local StorageData1 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), true)
+    local StorageData2 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), true)
 
     InventoryHandler.AppendStorageArrayToQueue(PlayerInventory, {HeadData, TorsoData, LegsData, BackData, PrimaryWeaponData, SecondaryWeaponData, StorageData1, StorageData2})
 
     local ItemData = PlayerInventory:GenerateItemData(StorageData1, "Helmet", getItemId())
-    -- local ItemData1 = PlayerInventory:GenerateItemData(StorageData2, "Robux", getItemId())
+    local ItemData1 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley", getItemId())
     -- local ItemData2 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley", getItemId())
     -- local ItemData3 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley1", getItemId())
 
-    InventoryHandler.AppendItemArrayToQueue(PlayerInventory, {ItemData})
+    InventoryHandler.AppendItemArrayToQueue(PlayerInventory, {ItemData, ItemData1})
 
     PlayerStorageData[plr.UserId] = PlayerInventory
     SetData:Fire(plr, PlayerInventory)
@@ -157,9 +157,25 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, I
         local width = ItemInfo.Width
         local height = ItemInfo.Height
         StorageData.EquippedSlot = ItemData
+        
+        -- find the starter slots
+        local starterStorageDataTable = {}
+        local indices = {}
+        for index, data in ipairs(plrInventory.Storages) do
+            if data.Starter then
+                table.insert(starterStorageDataTable, data.Id)
+                table.insert(indices, index)
+                if ItemData.Type ~= "Backpack" then break end
+            end
+        end
+
         if width and height then -- valid to equip
             local AddedStorage = InventoryHandler.GenerateStorageData(width, height, nil, "ASBN"..ItemData.Id)
             InventoryHandler.AppendStorageToQueue(plrInventory, AddedStorage)
+            for _, v in ipairs(indices) do
+                table.remove(plrInventory.Storages, v)
+            end
+            if starterStorageDataTable then InventoryHandler.AppendStorageArrayToRemovalQueue(plrInventory, starterStorageDataTable) end
         end
         plrInventory.Storages[StorageDataIndex] = StorageData
         SetData:Fire(Player, plrInventory, nil, StorageDataIndex)
@@ -188,10 +204,36 @@ ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Id, p_Sto
         return nil
     end
 
+    local StarterStorages = 0
+    for _, data in ipairs(plrInventory.Storages) do
+        if data.Starter then
+            StarterStorages = StarterStorages + 1
+        end
+    end
+
+    local EquippedItems = 0 
+    for _, data in ipairs(plrInventory.Storages) do
+        if data.EquippedSlot and data.Id ~= StorageData.Id then
+            EquippedItems = EquippedItems + 1
+            if data.EquippedSlot.Type == "Backpack" then
+                EquippedItems = EquippedItems + 1
+            end
+        end
+    end
+
     local ItemData = plrInventory.Items[tostring(Id)]
     if ItemData.Type == Type and StorageData.EquippedSlot.Id == Id then -- item exists on the server and it can be equipped
         StorageData.EquippedSlot = nil
-        table.insert(plrInventory.RemovalQueue, "ASBN"..Id)
+        if 2 - EquippedItems > 0 and StarterStorages + 1 <= 2 then
+            local tab = {}
+            table.insert(tab, InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), true))
+            StarterStorages = StarterStorages + 1
+            if 2 - EquippedItems > 1 and StarterStorages + 1 <= 2 then
+                table.insert(tab, InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), true))
+            end
+            InventoryHandler.AppendStorageArrayToQueue(plrInventory, tab)
+        end
+        InventoryHandler.AppendStorageToRemovalQueue(plrInventory, "ASBN"..Id)
         SetData:Fire(Player, plrInventory)
         PlayerStorageData[Player.UserId].RemovalQueue = {}
     end

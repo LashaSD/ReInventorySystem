@@ -47,6 +47,12 @@ InventoryHandler.AppendStorageToRemovalQueue = function(Inv, StorageId)
 	table.insert(Inv.RemovalQueue, StorageId)
 end
 
+InventoryHandler.AppendStorageArrayToRemovalQueue = function(Inv, Storages)
+	for _, v in ipairs(Storages) do
+		InventoryHandler.AppendStorageToRemovalQueue(Inv, v)
+	end
+end 	
+
 function InventoryHandler.CheckFreeSpace(StorageData, Width, Height)
 	for Y = 0, #StorageData.Tiles[0] - Height + 1 do
 		local xTiles = StorageData.Tiles
@@ -112,7 +118,7 @@ function InventoryHandler.GenerateStorageUnitData(p_Width, p_Height, p_Id, p_Acc
 	return data
 end
 
-function InventoryHandler.GenerateStorageData(Width, Height, Type, Id)
+function InventoryHandler.GenerateStorageData(Width, Height, Type, Id, StarterTag)
 	if not Id then print("Id is required to generate storage data"); return nil end
 	local data = {}
 	data.Storage = nil
@@ -121,6 +127,7 @@ function InventoryHandler.GenerateStorageData(Width, Height, Type, Id)
 	data.Id = Id or nil
 	data.Width = Width
 	data.Height = Height
+	data.Starter = StarterTag or false
 	
 	data.Tiles = {}
 

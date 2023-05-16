@@ -63,10 +63,10 @@ function Inventory:GenerateQueue()
 	self.Queue = {}
 end
 
-function Inventory:EmptyRemovalQueue() 
+function Inventory:EmptyRemovalQueue()
 	for i = 1, #self.RemovalQueue do
 		local removalId = self.RemovalQueue[i]
-		-- find the storage with given id 
+		-- find the storage with given id
 		for Index, Storage in ipairs(self.Storages) do
 			if Storage.Id == removalId then
 				local items = self.Items 
@@ -80,13 +80,12 @@ function Inventory:EmptyRemovalQueue()
 							data.StorageData = SData 
 							data.Item.Parent = SData.Storage
 							data:ChangeLocationWithinStorage(x, y)
-						else 
+						else
 							data:Destroy()
 						end
 					end
 				end
 				Storage.Storage:Destroy()
-				return
 			end
 		end
 	end
