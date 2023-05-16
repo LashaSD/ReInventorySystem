@@ -77,17 +77,22 @@ function InventoryHandler.CheckFreeSpaceInventoryWide(Inv, Width, Height)
 	end
 end 	
 
-function InventoryHandler.EvaluateGridSquares(Inv, StorageData)
+function InventoryHandler.EvaluateGridSquares(StorageData, Items)
 	local takenSquares = {}
-	for id, data in pairs(Inv.Items) do
+	for id, data in pairs(Items) do
 		-- this item is in the desired storage 
-		if data.StorageData.Id == StorageData.Id then 
-			local width = data.Item:GetAttribute("Width")
-			local height = data.Item:GetAttribute("Height")
-			for x = data.TileX, data.TileX + width -1 do
-				for y = data.TileY, data.TileY + height -1 do
-					table.insert(takenSquares, {x, y})
-				end
+		local itemFrame = ReplicatedStorage.Items:FindFirstChild(data.Item)
+		if not itemFrame then continue end
+		local width = itemFrame:GetAttribute("Width")
+		local height = itemFrame:GetAttribute("Height")
+		if data.Rotation % 180 ~= 0 then
+			local i = width
+			width = height
+			height = i
+		end
+		for x = data.TileX, data.TileX + width -1 do
+			for y = data.TileY, data.TileY + height -1 do
+				table.insert(takenSquares, {x, y})
 			end
 		end
 	end

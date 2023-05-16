@@ -62,16 +62,6 @@ end
 players.PlayerAdded:Connect(function(plr)
     local PlayerInventory = Inventory.new()
 
-    -- local HeadData = {3, 3, "Head"}
-    -- local TorsoData = {3,3, "Torso"}
-    -- local LegsData = {3,3, "Legs"}
-    -- local BackData = {3,3, "Back"}
-    -- local PrimaryWeaponData = {6,3, "Primary"}
-    -- local SecondaryWeaponData = {3,3, "Secondary"}
-
-    -- local StorageData1 = {8,8}
-    -- local StorageData2 = {5, 8}
-
     -- If you rename the types of the following storages, also change the name of the frames in collumn A
     local HeadData = InventoryHandler.GenerateStorageData(3, 3, "Headwear", getStorageId())
     local TorsoData = InventoryHandler.GenerateStorageData(3,3, "Shirt", getStorageId())
@@ -95,6 +85,19 @@ players.PlayerAdded:Connect(function(plr)
 
     PlayerStorageData[plr.UserId] = PlayerInventory
     SetData:Fire(plr, PlayerInventory)
+end)
+
+players.PlayerRemoving:Connect(function(Player)
+    local inventory = PlayerStorageData[Player.UserId]
+    if not inventory then return nil end
+    local storageUnit = nil
+    for _, v in ipairs(StorageUnits) do
+        if v.Id == inventory.StorageUnit.Id then
+            storageUnit = v
+        end
+    end
+    if storageUnit then storageUnit:Deauthorize() end
+    PlayerStorageData[Player.UserId] = nil
 end)
 
 ClientEvents.GetStorageData.OnServerEvent:Connect(function(Player)

@@ -80,7 +80,7 @@ function StorageUnit:Deauthorize()
     if RunService:IsClient() then
         self:ClearUI()
         StorageUnitActions:FireServer('deauthorize', self.Id)
-    else 
+    else
         self.AuthorizationData = 'deauthorize'
     end
 end
@@ -113,13 +113,11 @@ function StorageUnit:GenerateUI(PlayerInventory)
             itemData.Item:SetAttribute("Height", width)
         end
     end
-    if self.Items then
-        local squares = InventoryHandler.EvaluateGridSquares(PlayerInventory, StorageData)
-        for x = 0, #StorageData.Tiles do
-            for y = 0, #StorageData.Tiles[0] do
-                local TileData = StorageData.Tiles[x][y]
-                TileData.Claimed = includes(squares, x, y)
-            end
+    local squares = InventoryHandler.EvaluateGridSquares(StorageData, self.Items)
+    for x = 0, #StorageData.Tiles do
+        for y = 0, #StorageData.Tiles[0] do
+            local TileData = StorageData.Tiles[x][y]
+            TileData.Claimed = includes(squares, x, y)
         end
     end
 end
