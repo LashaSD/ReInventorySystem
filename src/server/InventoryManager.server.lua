@@ -3,11 +3,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local ServerStorage = game:GetService("ServerStorage")
 
 --- Libs
 local Inventory = require(ReplicatedStorage.Common:WaitForChild("Inventory"))
 local InventoryHandler = require(ReplicatedStorage.Common:WaitForChild("InventoryHandler"))
 local StorageUnitMod = require(ReplicatedStorage.Common:WaitForChild("StorageUnit"))
+local PhysicalItemMod = require(script.Parent:WaitForChild("PhysicalItem"))
 
 --- Directories
 local events = script.Parent -- directory of where the remote events are stored
@@ -17,7 +19,6 @@ local ClientEvents = ReplicatedStorage.Common.Events
 local SetData = events.SetStorageData
 
 --- Vars
-
 local PlayerStorageData = {} -- Dict<UserId, Inventory>
 local StorageUnits = {}
 
@@ -70,26 +71,26 @@ players.PlayerAdded:Connect(function(plr)
     local PrimaryWeaponData = InventoryHandler.GenerateStorageData(6,3, "Primary", getStorageId())
     local SecondaryWeaponData = InventoryHandler.GenerateStorageData(3,3, "Secondary", getStorageId())
 
-    local StorageData1 = InventoryHandler.GenerateStorageData(8,8, nil, getStorageId())
-    local StorageData2 = InventoryHandler.GenerateStorageData(5,8, nil, getStorageId())
-
+    local StorageData1 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId())
+    local StorageData2 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId())
 
     InventoryHandler.AppendStorageArrayToQueue(PlayerInventory, {HeadData, TorsoData, LegsData, BackData, PrimaryWeaponData, SecondaryWeaponData, StorageData1, StorageData2})
 
     local ItemData = PlayerInventory:GenerateItemData(StorageData1, "Helmet", getItemId())
-    local ItemData1 = PlayerInventory:GenerateItemData(StorageData2, "Robux", getItemId())
-    local ItemData2 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley", getItemId())
-    local ItemData3 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley1", getItemId())
+    -- local ItemData1 = PlayerInventory:GenerateItemData(StorageData2, "Robux", getItemId())
+    -- local ItemData2 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley", getItemId())
+    -- local ItemData3 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley1", getItemId())
 
-    InventoryHandler.AppendItemArrayToQueue(PlayerInventory, {ItemData, ItemData1, ItemData2, ItemData3})
+    InventoryHandler.AppendItemArrayToQueue(PlayerInventory, {ItemData})
 
     PlayerStorageData[plr.UserId] = PlayerInventory
     SetData:Fire(plr, PlayerInventory)
 end)
 
 players.PlayerRemoving:Connect(function(Player)
-    local inventory = PlayerStorageData[Player.UserId]
-    if not inventory then return nil end
+    local id = Player.UserId
+    local inventory = PlayerStorageData[id]
+    if not inventory or not Inventory.StorageUnit then return nil end
     local storageUnit = nil
     for _, v in ipairs(StorageUnits) do
         if v.Id == inventory.StorageUnit.Id then
@@ -97,7 +98,7 @@ players.PlayerRemoving:Connect(function(Player)
         end
     end
     if storageUnit then storageUnit:Deauthorize() end
-    PlayerStorageData[Player.UserId] = nil
+    PlayerStorageData[id] = nil
 end)
 
 ClientEvents.GetStorageData.OnServerEvent:Connect(function(Player)
@@ -257,9 +258,11 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
         return
     end
     if Action == "updatedata" then
-        for x, yTiles in ipairs(StorageData.Tiles) do
-            for y, Data in ipairs(yTiles) do
+        for x = 0, #StorageData.Tiles do
+            for y = 0, #StorageData.Tiles[0] do
+                local Data = StorageData.Tiles[x][y]
                 if not data[tostring(x)] then
+                    Data["Claimed"] = false
                     continue
                 end
                 Data["Claimed"] = includes(data[tostring(x)], y)
@@ -270,6 +273,63 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
         end
     elseif Action == "removeitem" then
         plrInventory.Items[p_ItemId] = nil
+    elseif Action == "dropitem" then
+        -- check if item exists
+        local itemData = plrInventory.Items[p_ItemId]
+        if not itemData then return nil end
+
+        plrInventory.Items[p_ItemId] = nil
+
+        local physicalItemDir = ServerStorage.Items:FindFirstChild(itemData.Item)
+        if not physicalItemDir then 
+            physicalItemDir = ServerStorage.Items:FindFirstChild('Default')
+        end
+
+        local char = Player.Character or Player.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+
+        -- item 
+        local item = physicalItemDir:Clone()
+        item.Name = itemData.Item
+
+        local PhysicalItem = PhysicalItemMod.new(item, data)
+
+        PhysicalItem:Init()
+
+        local offset = Vector3.new(0,0,-5)
+        PhysicalItem.Part.CFrame = hrp.CFrame * CFrame.new(offset)
+
+        local prompt = PhysicalItem:GeneratePrompt(Player)
+        prompt.Triggered:Connect(function(Player) 
+            if PhysicalItem.Triggered then return nil end
+            PhysicalItem.Triggered = true
+            local playerInventory = PlayerStorageData[Player.UserId]
+            if not playerInventory then return nil end
+
+            local itemFrame = ReplicatedStorage.ItemFrames:FindFirstChild(PhysicalItem.Part.Name)
+            local width = itemFrame:GetAttribute("Width")
+            local height = itemFrame:GetAttribute("Height")
+            local sdata,x,y = InventoryHandler.CheckFreeSpaceInventoryWide(playerInventory, width, height)
+
+            if not sdata then
+                print("Item Doesn't fit")
+                return
+            end
+
+            PhysicalItem.Part:Destroy()
+
+
+
+            local newItemData = InventoryHandler.GenerateItemData(playerInventory, sdata, PhysicalItem.Part.Name, getItemId())
+            newItemData.TileX = x
+            newItemData.TileY = y
+            
+
+            InventoryHandler.AppendStorageToQueue(playerInventory, sdata)
+            InventoryHandler.AppendItemToQueue(playerInventory, newItemData)
+
+            SetData:Fire(Player, playerInventory)
+        end)
     end
 end)
 

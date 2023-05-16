@@ -97,7 +97,7 @@ function StorageUnit:GenerateUI(PlayerInventory)
     -- ITEM UI
 
     for id, data in pairs(self.Items) do
-        local item = ReplicatedStorage.Items:FindFirstChild(data.Name):Clone()
+        local item = ReplicatedStorage.ItemFrames:FindFirstChild(data.Name):Clone()
         local itemData = PlayerInventory:GenerateItemData(StorageData, item.Name, data.Id)
         itemData.StorageData = StorageData
         itemData.TileX = data.TileX

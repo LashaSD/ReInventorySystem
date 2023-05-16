@@ -25,22 +25,35 @@ function Inventory:GenerateQueue()
 		local FrameDir = StorageData.Type and InventoryUi.a.a or InventoryUi.b.b
 		local Frame = StorageData.Type and FrameDir:FindFirstChild(StorageData.Type) or FrameDir
 		if Frame then
-			local NewStorageData = self:GenerateStorage(StorageData, Frame)
-			if not StorageData.Type then
-				local InvisibleFrame = Frame:FindFirstChild("InvisibleFrame1")
-				local clone = InvisibleFrame:Clone()
-				clone.Name = "InvisibleFrame1"
-				clone.Parent = NewStorageData.Storage.Parent
-				InvisibleFrame:Destroy()
+			local bool = false 
+			local oldStorageData = nil
+			for _, data in ipairs(self.Storages) do
+				if data.Id == StorageData.Id then
+					bool = true
+					oldStorageData = data
+					break
+				end
+			end
+			local NewStorageData = nil
+			if not bool then
+				NewStorageData = self:GenerateStorage(StorageData, Frame)
+				if not StorageData.Type then
+					local InvisibleFrame = Frame:FindFirstChild("InvisibleFrame1")
+					local clone = InvisibleFrame:Clone()
+					clone.Name = "InvisibleFrame1"
+					clone.Parent = NewStorageData.Storage.Parent
+					InvisibleFrame:Destroy()
+				end
 			end
 			-- generate all the items 
 			local ItemQueue = Data[2]
 			if ItemQueue then
 				for _, ItemData in ipairs(ItemQueue) do
-					ItemData.StorageData = NewStorageData
-					ItemData.Item = ReplicatedStorage.Items:FindFirstChild(ItemData.Item):Clone()
+					ItemData.StorageData = NewStorageData or oldStorageData
+					ItemData.Item = ReplicatedStorage.ItemFrames:FindFirstChild(ItemData.Item):Clone()
 					ItemData.Type = ItemData.Item:GetAttribute("Type")
-					local Item = ItemMod.new(ItemData):Init()
+					local Item = ItemMod.new(ItemData)
+					if Item then Item:Init() end
 					self.Items[tostring(Item.Id)] = Item
 				end
 			end
@@ -127,7 +140,7 @@ function Inventory:GenerateItemData(p_StorageData, p_Item, p_Id)
 	Data.Storage = p_StorageData
 	Data.Id = tostring(p_Id)
 	Data.Item = p_Item or nil
-	Data.Type = ReplicatedStorage.Items:FindFirstChild(p_Item) and ReplicatedStorage.Items:FindFirstChild(p_Item):GetAttribute("Type")
+	Data.Type = ReplicatedStorage.ItemFrames:FindFirstChild(p_Item) and ReplicatedStorage.ItemFrames:FindFirstChild(p_Item):GetAttribute("Type")
 	Data.TileX = nil 
 	Data.TileY = nil
 	self.Items[Data.Id] = Data

@@ -81,7 +81,7 @@ function InventoryHandler.EvaluateGridSquares(StorageData, Items)
 	local takenSquares = {}
 	for id, data in pairs(Items) do
 		-- this item is in the desired storage 
-		local itemFrame = ReplicatedStorage.Items:FindFirstChild(data.Item)
+		local itemFrame = ReplicatedStorage.ItemFrames:FindFirstChild(data.Item)
 		if not itemFrame then continue end
 		local width = itemFrame:GetAttribute("Width")
 		local height = itemFrame:GetAttribute("Height")
@@ -168,6 +168,19 @@ function InventoryHandler.GenerateStorageData(Width, Height, Type, Id)
 	
 	return data
 end
+
+function InventoryHandler.GenerateItemData(Inventory, p_StorageData, p_Item, p_Id)
+	if not p_Id or not p_StorageData then return nil end
+	local Data = {}
+	Data.Storage = p_StorageData
+	Data.Id = tostring(p_Id)
+	Data.Item = p_Item or nil
+	Data.Type = ReplicatedStorage.ItemFrames:FindFirstChild(p_Item) and ReplicatedStorage.ItemFrames:FindFirstChild(p_Item):GetAttribute("Type")
+	Data.TileX = nil 
+	Data.TileY = nil
+	Inventory.Items[Data.Id] = Data
+	return Data
+end 
 
 -- Modified Function for generating Storage Units
 function InventoryHandler:GenerateStorage(Data, Frame)

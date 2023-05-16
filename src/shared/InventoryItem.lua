@@ -290,7 +290,7 @@ function InventoryItem:Init()
                     connection2:Disconnect()
                     connection3:Disconnect()
                     DeleteFrame:Destroy()
-                    self:Destroy()
+                    self:Drop()
                     return
                 else
                     DeleteFrame.ItemFrame.TextButton.Text = confirmText
@@ -520,6 +520,16 @@ function InventoryItem:Destroy()
     local claimedTiles = self:GetClaimedTiles()
     InventoryActions:FireServer("updatedata", self.StorageData.Id, self.Id, claimedTiles)
     InventoryActions:FireServer("removeitem", self.StorageData.Id, self.Id)
+end 
+
+function InventoryItem:Drop()
+    self.Item:Destroy()
+    self:UnclaimCurrentTiles()
+    local claimedTiles = self:GetClaimedTiles()
+    InventoryActions:FireServer("updatedata", self.StorageData.Id, self.Id, claimedTiles)
+    local parsedData = {}
+    parsedData.Rarity = self.Item:GetAttribute("Rarity")
+    InventoryActions:FireServer("dropitem", self.StorageData.Id, self.Id, parsedData)
 end 
 
 
