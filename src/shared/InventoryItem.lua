@@ -44,8 +44,6 @@ function InventoryItem.new(ItemData)
     self.OriginOrientation = self.Item.Rotation
     self.CurrentOrientation = self.Item.Rotation
 
-
-
     self.PendingStorage = nil
 
 	return self
@@ -63,8 +61,7 @@ function InventoryItem:Init()
     self.Item.Size = UDim2.new(0, TileSize * width, 0, TileSize * height)
 
 	self:ChangeLocationWithinStorage(self.TileX, self.TileY)
-    local ClaimedTiles = self:GetClaimedTiles()
-    InventoryActions:FireServer('updatedata', self.StorageData.Id, self.Id, ClaimedTiles)
+    self:UpdateServer()
 
     self.OriginPosition = self.Item.Position
 
@@ -147,7 +144,6 @@ function InventoryItem:Init()
                 StorageUnitActions:FireServer("additem", self.PendingStorageData.Id, self.Id, parsedData)
             end
         else
-
             -- Origin Storage Reset
             if self.PendingStorageData ~= self.StorageData then 
                 self.Item.Parent = self.StorageData.Storage 

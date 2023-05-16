@@ -90,7 +90,7 @@ end)
 players.PlayerRemoving:Connect(function(Player)
     local id = Player.UserId
     local inventory = PlayerStorageData[id]
-    if not inventory or not Inventory.StorageUnit then return nil end
+    if not inventory or not inventory.StorageUnit then return nil end
     local storageUnit = nil
     for _, v in ipairs(StorageUnits) do
         if v.Id == inventory.StorageUnit.Id then
@@ -172,12 +172,10 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, I
         if width and height then -- valid to equip
             local AddedStorage = InventoryHandler.GenerateStorageData(width, height, nil, "ASBN"..ItemData.Id)
             InventoryHandler.AppendStorageToQueue(plrInventory, AddedStorage)
-            for _, v in ipairs(indices) do
-                table.remove(plrInventory.Storages, v)
-            end
             if starterStorageDataTable then InventoryHandler.AppendStorageArrayToRemovalQueue(plrInventory, starterStorageDataTable) end
         end
         plrInventory.Storages[StorageDataIndex] = StorageData
+        PlayerStorageData[Player.UserId] = plrInventory
         SetData:Fire(Player, plrInventory, nil, StorageDataIndex)
     end
 end)
@@ -295,7 +293,7 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
             StorageData = Data
         end
     end
-    if not StorageData then
+    if not StorageData and Action ~= "dropitem" then
         print("Failed to fetch Storagedata and perform Action: ".. Action)
         return
     end
@@ -310,9 +308,9 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
                 Data["Claimed"] = includes(data[tostring(x)], y)
             end
         end
-        for i, coords in ipairs(data) do
-            StorageData.Tiles[coords[1]][coords[2]]["Claimed"] = true
-        end
+        -- for i, coords in ipairs(data) do
+        --     StorageData.Tiles[coords[1]][coords[2]]["Claimed"] = true
+        -- end
     elseif Action == "removeitem" then
         plrInventory.Items[p_ItemId] = nil
     elseif Action == "dropitem" then
@@ -387,10 +385,11 @@ for index, Part in ipairs(StorageUnitParts) do
         table.insert(StorageUnits, StorageUnit)
 
         -- add a way for player to open storage units
+        local ClickDetector = Instance.new("ClickDetector")
+        local ItemName = Part:GetAttribute("ItemName")
+        if Part:IsA("Model") then Part = Part:FindFirstChild("Main") end
+        ClickDetector.Parent = Part
         if accessible then
-            local ClickDetector = Instance.new("ClickDetector")
-            if Part:IsA("Model") then Part = Part:FindFirstChild("Main") end
-            ClickDetector.Parent = Part
             ClickDetector.MouseClick:Connect(function(Player)
                 local response = StorageUnit:Authorize(Player)
                 if not response then return nil end
@@ -422,6 +421,56 @@ for index, Part in ipairs(StorageUnitParts) do
                         end
                     end
                 end)
+            end)
+        else
+            local itemData = {}
+            itemData.Name = ItemName
+            if not itemData.Name or not ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name) then print("Bruh") return nil end
+            local item = ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name)
+            
+            itemData.Width = item:GetAttribute("Width")
+            itemData.Height = item:GetAttribute("Height")
+            itemData.Type = item:GetAttribute("Type")
+            itemData.Id = getItemId()
+            StorageUnit:InsertItem(itemData)
+            ClickDetector.MouseClick:Connect(function(Player) 
+                local response = StorageUnit:Authorize(Player)
+                if not response then return nil end
+
+                local PlayerInventory = PlayerStorageData[Player.UserId] -- get Player Storage Data
+                if not PlayerInventory then
+                    StorageUnit:Deauthorize()
+                    return nil
+                end
+
+                local PlayerStorageUnit = PlayerInventory.StorageUnit -- get the player inventory for holding storage unit data
+                if PlayerStorageUnit and PlayerStorageUnit.User then -- check if player is already authorized in another storage unit
+                    StorageUnit:Deauthorize()
+                    return nil
+                end
+
+                local itemId, ItemData = next(StorageUnit.Items, nil)
+
+
+                PlayerInventory.Items[tostring(itemId)] = ItemData
+                local itemFrame = ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name)
+                if not itemFrame then StorageUnit:Deauthorize(); return nil end
+                local itemWidth = itemFrame:GetAttribute("Width")
+                local itemHeight = itemFrame:GetAttribute("Height")
+                local sdata, x, y = InventoryHandler.CheckFreeSpaceInventoryWide(PlayerInventory, itemWidth, itemHeight)
+
+                if not sdata then print("No Space"); StorageUnit:Deauthorize();return nil end
+
+                local newItemData = InventoryHandler.GenerateItemData(PlayerInventory, sdata, ItemName, getItemId())
+                newItemData.TileX = x
+                newItemData.TileY = y
+
+                InventoryHandler.AppendStorageToQueue(PlayerInventory, sdata)
+                InventoryHandler.AppendItemToQueue(PlayerInventory, newItemData)
+
+                PlayerStorageData[Player.UserId] = PlayerInventory
+                SetData:Fire(Player, PlayerInventory)
+                StorageUnit:Deauthorize()
             end)
         end
     end

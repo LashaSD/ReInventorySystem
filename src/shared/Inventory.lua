@@ -1,6 +1,15 @@
+-- Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Libs
 local ItemMod = require(ReplicatedStorage.Common:WaitForChild("InventoryItem"))
 local InventoryHandler = require(ReplicatedStorage.Common:WaitForChild("InventoryHandler"))
+
+-- Directories
+local ClientEvents = ReplicatedStorage.Common.Events
+
+-- Events
+local InventoryActions = ClientEvents:WaitForChild("Inventory")
 
 local Inventory = {}
 Inventory.__index = Inventory
@@ -37,6 +46,7 @@ function Inventory:GenerateQueue()
 			local NewStorageData = nil
 			if not bool then
 				NewStorageData = self:GenerateStorage(StorageData, Frame)
+				print(NewStorageData)
 				if not StorageData.Type then
 					local InvisibleFrame = Frame:FindFirstChild("InvisibleFrame1")
 					local clone = InvisibleFrame:Clone()
@@ -47,14 +57,17 @@ function Inventory:GenerateQueue()
 			end
 			-- generate all the items 
 			local ItemQueue = Data[2]
+
 			if ItemQueue then
 				for _, ItemData in ipairs(ItemQueue) do
 					ItemData.StorageData = NewStorageData or oldStorageData
 					ItemData.Item = ReplicatedStorage.ItemFrames:FindFirstChild(ItemData.Item):Clone()
 					ItemData.Type = ItemData.Item:GetAttribute("Type")
 					local Item = ItemMod.new(ItemData)
-					if Item then Item:Init() end
-					self.Items[tostring(Item.Id)] = Item
+					if Item then 
+						Item:Init() 
+						self.Items[tostring(Item.Id)] = Item
+					end
 				end
 			end
 		end
@@ -80,8 +93,10 @@ function Inventory:EmptyRemovalQueue()
 							data.StorageData = SData 
 							data.Item.Parent = SData.Storage
 							data:ChangeLocationWithinStorage(x, y)
+							local ClaimedTiles = data:GetClaimedTiles()
+							InventoryActions:FireServer('updatedata', SData.Id, data.Id, ClaimedTiles)
 						else
-							data:Destroy()
+							data:Drop()
 						end
 					end
 				end

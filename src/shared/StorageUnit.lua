@@ -36,14 +36,19 @@ function StorageUnit.new(p_StorageData)
     self.Items = p_StorageData.Items or {} -- Dictionary<ItemId, ItemData>
     self.AuthorizationData = nil
 
-    -- p_StorageData includes: Width, Height, Id
+    -- p_StorageData includes: Width, Height, Id, Accessible
 
     return self
 end 
 
 function StorageUnit:InsertItem(ItemData)
-    print("Item Added To Storage ITEMID: ".. ItemData.Id)
-    self.Items[tostring(ItemData.Id)] = ItemData
+    if self.Accessible then
+        print("Item Added To Storage ITEMID: ".. ItemData.Id)
+        self.Items[tostring(ItemData.Id)] = ItemData
+    else 
+        print("Item Generated to the Storage Unit")
+        self.Items['0'] = ItemData
+    end
 end 
 
 function StorageUnit:RemoveItem(ItemId)

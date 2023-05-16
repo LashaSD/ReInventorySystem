@@ -45,6 +45,14 @@ end
 
 InventoryHandler.AppendStorageToRemovalQueue = function(Inv, StorageId)
 	table.insert(Inv.RemovalQueue, StorageId)
+	if RunService:IsServer() then
+		for i, v in ipairs(Inv.Storages) do
+			if v.Id == StorageId then
+				table.remove(Inv.Storages, i)
+				break
+			end
+		end
+	end
 end
 
 InventoryHandler.AppendStorageArrayToRemovalQueue = function(Inv, Storages)
@@ -54,6 +62,7 @@ InventoryHandler.AppendStorageArrayToRemovalQueue = function(Inv, Storages)
 end 	
 
 function InventoryHandler.CheckFreeSpace(StorageData, Width, Height)
+	print(StorageData)
 	for Y = 0, #StorageData.Tiles[0] - Height + 1 do
 		local xTiles = StorageData.Tiles
 		for X = 0, #xTiles - Width + 1 do
@@ -65,6 +74,7 @@ function InventoryHandler.CheckFreeSpace(StorageData, Width, Height)
 						break
 					end
 					if i == X + Width - 1 and j == Y + Height - 1 then
+						print("Returned On: ".. i, j)
 						return X, Y
 					end 
 				end
