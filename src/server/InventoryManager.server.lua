@@ -366,6 +366,7 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
             InventoryHandler.AppendStorageToQueue(playerInventory, sdata)
             InventoryHandler.AppendItemToQueue(playerInventory, newItemData)
 
+            PlayerStorageData[Player.UserId] = plrInventory
             SetData:Fire(Player, playerInventory)
         end)
     end

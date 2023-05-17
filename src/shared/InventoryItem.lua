@@ -50,6 +50,7 @@ function InventoryItem.new(ItemData)
 end
 
 function InventoryItem:Init()
+    TileSize = math.floor(Players.LocalPlayer.PlayerGui.Inventory.AbsoluteSize.X * 30 / 1280)
     self.Connections = {}
 
 	local width = self.Item:GetAttribute("Width")
