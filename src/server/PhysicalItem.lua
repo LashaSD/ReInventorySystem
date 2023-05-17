@@ -17,11 +17,10 @@ function Item:GeneratePrompt()
     local ProximityPrompt = Instance.new("ProximityPrompt")
     ProximityPrompt.Parent = self.Part
     ProximityPrompt.ActionText = "Pick Up"
-    ProximityPrompt.ObjectText = self.Part.Name.. "\n Rarity: ".. self.Rarity
+    ProximityPrompt.ObjectText = self.Part.Name--.. "\n Rarity: ".. self.Rarity
     ProximityPrompt.ClickablePrompt = true
     return ProximityPrompt
 end
-
 
 
 return Item

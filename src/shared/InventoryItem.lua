@@ -75,7 +75,6 @@ function InventoryItem:Init()
         self.Item.Position = UDim2.fromOffset(self.Item.AbsolutePosition - self.StorageData.Storage.AbsolutePosition)
         -- make the tiles that the item was on claimable
         self:UnclaimCurrentTiles()
-        -- HoverConnection = self:GetItemHover() -- for indicating which spaces are valid for our item to be placed in 
         rotateConnection = self:GetRotate() -- rotating the part when player hits "R" on keyboard
     end 
 
@@ -265,51 +264,67 @@ function InventoryItem:Init()
 
     table.insert(self.Connections, infoOnHover)
 
-    local DeleteFrame = nil
+    local ItemOptions = nil
     local confirmText = "Are You Sure?"
-    local deleteFrameC = self.Item.InputBegan:Connect(function(InputObject)
+    local Options = self.Item.InputBegan:Connect(function(InputObject)
         if InputObject.UserInputType == Enum.UserInputType.MouseButton2 then
             if self.StorageData.Storage.Parent.Name ~= "b" then return nil end
             if InfoBoxFrame then InfoBoxFrame:Destroy(); if connection1  then connection1:Disconnect() end end
-            DeleteFrame = ReplicatedStorage.Common.UiFrames:WaitForChild("DeleteFrame"):Clone()
+
+            ItemOptions = ReplicatedStorage.Common.UiFrames:WaitForChild("ItemOptions"):Clone()
+            local DeleteFrame = ItemOptions.DeleteFrame
+            local DropFrame = ItemOptions.DropFrame
+            
             local Mouse = Players.LocalPlayer:GetMouse()
             local x = Mouse.X
             local y = Mouse.Y 
             local pos = Vector2.new(x, y) - self.Item.Parent.Parent.Parent.Parent.AbsolutePosition
             local YOffset = self.StorageData.Storage.Parent.CanvasPosition.Y
-            DeleteFrame.Position = UDim2.fromOffset(pos.x, pos.y + YOffset)
-            DeleteFrame.Parent = self.StorageData.Storage.Parent.Parent.Parent
+
+            ItemOptions.Position = UDim2.fromOffset(pos.x, pos.y + YOffset)
+            ItemOptions.Parent = self.StorageData.Storage.Parent.Parent.Parent
+
             local connection3 = nil
+            local connection4 = nil
+            local connection5 = nil
+
             connection3 = DeleteFrame.ItemFrame.TextButton.MouseButton1Click:Connect(function()
                 if DeleteFrame.ItemFrame.TextButton.Text == confirmText then
-                    connection2:Disconnect()
-                    connection3:Disconnect()
-                    DeleteFrame:Destroy()
-                    self:Drop()
+                    if connection2 then connection2:Disconnect() end
+                    if connection4 then connection4:Disconnect() end
+                    ItemOptions:Destroy()
+                    self:Destory()
                     return
                 else
                     DeleteFrame.ItemFrame.TextButton.Text = confirmText
                 end
             end)
 
-            local connection4 = nil
+            connection4 = DropFrame.ItemFrame.TextButton.MouseButton1Click:Connect(function()
+                if connection2 then connection2:Disconnect() end
+                if connection3 then connection3:Disconnect() end
+                connection4:Disconnect()
+                ItemOptions:Destroy()
+                self:Drop()
+                return
+            end)
 
             local bool = true
             local bool1 = true
 
-            connection4 = self.Item.MouseLeave:Connect(function()
+            connection5 = self.Item.MouseLeave:Connect(function()
                 bool1 = true
                 if bool then
-                    DeleteFrame:Destroy()
+                    ItemOptions:Destroy()
                     connection2:Disconnect()
                 end
             end)
-            DeleteFrame.MouseEnter:Connect(function() bool = false end)
-            DeleteFrame.MouseLeave:Connect(function()
+            ItemOptions.MouseEnter:Connect(function() bool = false end)
+            ItemOptions.MouseLeave:Connect(function()
                 bool = true 
                 if bool1 then
-                    DeleteFrame:Destroy()
-                    connection4:Disconnect()
+                    ItemOptions:Destroy()
+                    if connection5 then connection5:Disconnect() end
                 end
             end)
         elseif InputObject.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -319,7 +334,7 @@ function InventoryItem:Init()
         end
     end)
 
-    table.insert(self.Connections, deleteFrameC)
+    table.insert(self.Connections, Options)
 
     return self
 end

@@ -89,7 +89,6 @@ function Inventory:EmptyRemovalQueue()
 						local height = data.Height or data.Item:GetAttribute("Height")
 						local SData, x, y = InventoryHandler.CheckFreeSpaceInventoryWide(self, width, height)
 						if SData and x and y then
-							print(data)
 							data.StorageData = SData 
 							data.Item.Parent = SData.Storage
 							data:ChangeLocationWithinStorage(x, y)
