@@ -153,7 +153,6 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, I
 
     
     local ItemData = plrInventory.Items[tostring(Id)]
-    print(ItemData)
     if ItemData.Type == Type then -- item exists on the server and it can be equipped
         local width = ItemInfo.Width
         local height = ItemInfo.Height
@@ -193,8 +192,6 @@ ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Id, p_Sto
         end
     end
 
-    print(StorageData)
-
     if not StorageData then
         print("Couldn't find Storage with ID: ".. p_StorageId)
         return nil
@@ -223,7 +220,6 @@ ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Id, p_Sto
     end
 
     local ItemData = plrInventory.Items[tostring(Id)]
-    print(StorageData.EquippedSlot.Id, Id)
     if ItemData.Type == Type and tostring(StorageData.EquippedSlot.Id) == tostring(Id) then -- item exists on the server and it can be equipped
         StorageData.EquippedSlot = nil
         if 2 - EquippedItems > 0 and StarterStorages + 1 <= 2 then
@@ -343,11 +339,12 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
         PhysicalItem.Part.CFrame = hrp.CFrame * CFrame.new(offset)
 
         local prompt = PhysicalItem:GeneratePrompt(Player)
-        prompt.Triggered:Connect(function(Player)
+        local connection = nil
+        connection = prompt.Triggered:Connect(function(Player)
             if PhysicalItem.Triggered then return nil end
             PhysicalItem.Triggered = true
             local playerInventory = PlayerStorageData[Player.UserId]
-            if not playerInventory then return nil end
+            if not playerInventory then PhysicalItem.Triggered = false; return nil end
 
             local itemFrame = ReplicatedStorage.ItemFrames:FindFirstChild(PhysicalItem.Part.Name)
             local width = itemFrame:GetAttribute("Width")
@@ -355,6 +352,7 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
             local sdata,x,y = InventoryHandler.CheckFreeSpaceInventoryWide(playerInventory, width, height)
 
             if not sdata then
+                PhysicalItem.Triggered = false;
                 print("Item Doesn't fit")
                 return
             end
@@ -371,6 +369,7 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
 
             PlayerStorageData[Player.UserId] = plrInventory
             SetData:Fire(Player, playerInventory)
+            connection:Disconnect()
         end)
     end
 end)

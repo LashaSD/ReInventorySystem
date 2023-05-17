@@ -60,7 +60,6 @@ function Inventory:GenerateQueue()
 			if ItemQueue then
 				for _, ItemData in ipairs(ItemQueue) do
 					ItemData.StorageData = NewStorageData or oldStorageData
-					print(ItemData)
 					ItemData.Item = ReplicatedStorage.ItemFrames:FindFirstChild(ItemData.Item):Clone()
 					ItemData.Type = ItemData.Item:GetAttribute("Type")
 					local Item = ItemMod.new(ItemData)
@@ -90,8 +89,18 @@ function Inventory:EmptyRemovalQueue()
 						local height = data.Height or data.Item:GetAttribute("Height")
 						local SData, x, y = InventoryHandler.CheckFreeSpaceInventoryWide(self, width, height)
 						if SData and x and y then
-							data.StorageData = SData 
-							data.Item.Parent = SData.Storage
+							data.StorageData = SData
+							local succes = pcall(function() 
+								data.Item.Parent = SData.Storage
+							end)
+							if not succes then 
+								data:Drop()
+								print("Something went Wrong with parenting the Item to a Storage Element Item Data: ")
+								print(data)
+								print("Item Object: ")
+								print(data.Item)
+								return nil
+							end 
 							data:ChangeLocationWithinStorage(x, y)
 							local ClaimedTiles = data:GetClaimedTiles()
 							InventoryActions:FireServer('updatedata', SData.Id, data.Id, ClaimedTiles)

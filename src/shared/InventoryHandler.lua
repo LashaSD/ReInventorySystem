@@ -199,6 +199,7 @@ function InventoryHandler.GenerateItemData(Inventory, p_StorageData, p_Item, p_I
 	Data.Storage = p_StorageData
 	Data.Id = tostring(p_Id)
 	Data.Item = p_Item or nil
+	Data.Name = p_Item
 	Data.Type = ReplicatedStorage.ItemFrames:FindFirstChild(p_Item) and ReplicatedStorage.ItemFrames:FindFirstChild(p_Item):GetAttribute("Type")
 	Data.TileX = nil 
 	Data.TileY = nil

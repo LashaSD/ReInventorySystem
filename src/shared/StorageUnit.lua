@@ -101,6 +101,7 @@ function StorageUnit:GenerateUI(PlayerInventory)
     StorageData = PlayerInventory:GenerateStorage(StorageData, FrameDir)
     -- ITEM UI
 
+    local Items = {}
     for id, data in pairs(self.Items) do
         local item = ReplicatedStorage.ItemFrames:FindFirstChild(data.Name):Clone()
         local itemData = PlayerInventory:GenerateItemData(StorageData, item.Name, data.Id)
@@ -115,14 +116,19 @@ function StorageUnit:GenerateUI(PlayerInventory)
             itemData.Item:SetAttribute("Height", width)
         end
         local x, y = InventoryHandler.CheckFreeSpace(StorageData, item:GetAttribute("Width"), item:GetAttribute("Height"))
+        if not x and not y then
+            print("No More Space")
+            break
+        end
         itemData.TileX = data.TileX or x
         itemData.TileY = data.TileY or y
         self.Items[id].TileX = itemData.TileX
         self.Items[id].TileY = itemData.TileY
         Item.new(itemData):Init()
+        table.insert(Items, self.Items[id])
     end
 
-    local squares = InventoryHandler.EvaluateGridSquares(StorageData, self.Items)
+    local squares = InventoryHandler.EvaluateGridSquares(StorageData, Items)
     for x = 0, #StorageData.Tiles do
         for y = 0, #StorageData.Tiles[0] do
             local TileData = StorageData.Tiles[x][y]

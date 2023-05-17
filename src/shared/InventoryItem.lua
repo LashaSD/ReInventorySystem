@@ -284,7 +284,7 @@ function InventoryItem:Init()
             local DropFrame = ItemOptions.DropFrame
 
             if self.StorageData.Storage.Parent.Name ~= "b" then DeleteFrame.Visible = false end
-            
+
             local Mouse = Players.LocalPlayer:GetMouse()
             local x = Mouse.X
             local y = Mouse.Y 
@@ -303,7 +303,7 @@ function InventoryItem:Init()
                     if connection2 then connection2:Disconnect() end
                     if connection4 then connection4:Disconnect() end
                     ItemOptions:Destroy()
-                    self:Destory()
+                    self:Destroy()
                     return
                 else
                     DeleteFrame.ItemFrame.TextButton.Text = confirmText
@@ -545,10 +545,13 @@ end
 function InventoryItem:Drop()
     self.Item:Destroy()
     self:UnclaimCurrentTiles()
+    print("Unclaimed tiles")
     local claimedTiles = self:GetClaimedTiles()
     InventoryActions:FireServer("updatedata", self.StorageData.Id, self.Id, claimedTiles)
+    print('updated data on current tiles')
     local parsedData = {}
     parsedData.Rarity = self.Item:GetAttribute("Rarity")
+    print('dropped the item')
     InventoryActions:FireServer("dropitem", self.StorageData.Id, self.Id, parsedData)
 end 
 
