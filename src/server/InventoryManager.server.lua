@@ -153,11 +153,15 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, I
 
     
     local ItemData = plrInventory.Items[tostring(Id)]
+    print("Checking Validity")
+    print(ItemData)
+    print(Type)
     if ItemData.Type == Type then -- item exists on the server and it can be equipped
         local width = ItemInfo.Width
         local height = ItemInfo.Height
         StorageData.EquippedSlot = ItemData
         
+        print("Checking Starter Slots for removal")
         -- find the starter slots
         local starterStorageDataTable = {}
         local indices = {}
@@ -170,12 +174,14 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, I
         end
 
         if width and height then -- valid to equip
+            print("generating an inventory")
             local AddedStorage = InventoryHandler.GenerateStorageData(width, height, nil, "ASBN"..ItemData.Id)
             InventoryHandler.AppendStorageToQueue(plrInventory, AddedStorage)
             if starterStorageDataTable then InventoryHandler.AppendStorageArrayToRemovalQueue(plrInventory, starterStorageDataTable) end
         end
         plrInventory.Storages[StorageDataIndex] = StorageData
         PlayerStorageData[Player.UserId] = plrInventory
+        print("sending a signal to update your inventory")
         SetData:Fire(Player, plrInventory, nil, StorageDataIndex)
     end
 end)

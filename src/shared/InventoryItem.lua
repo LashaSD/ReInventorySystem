@@ -545,13 +545,15 @@ end
 function InventoryItem:Drop()
     self.Item:Destroy()
     self:UnclaimCurrentTiles()
-    print("Unclaimed tiles")
     local claimedTiles = self:GetClaimedTiles()
     InventoryActions:FireServer("updatedata", self.StorageData.Id, self.Id, claimedTiles)
-    print('updated data on current tiles')
     local parsedData = {}
     parsedData.Rarity = self.Item:GetAttribute("Rarity")
-    print('dropped the item')
+    if self.StorageData.Storage.Parent.Name == "a" and self.Equipped then
+        local BaseComp = require(script.Parent:FindFirstChild("Component"))
+        self.Equipped = false
+        BaseComp.Unequipped(self.Type, self.Item, self.Id, self.StorageData.Id)
+    end
     InventoryActions:FireServer("dropitem", self.StorageData.Id, self.Id, parsedData)
 end 
 
