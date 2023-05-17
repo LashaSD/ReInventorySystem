@@ -19,12 +19,10 @@ local ClothingFunction = {
         Data.Width = Item:GetAttribute("InventoryWidth")
         Data.Height = Item:GetAttribute("InventoryHeight")
         ClothingEquipEvent:FireServer(Type, Data, Id, StorageId)
-        print("Put On Clothing")
     end,
     function(Type, Item, Id, StorageId)
         -- Unequip
         ClothingUnequipEvent:FireServer(Type, Id, StorageId)
-        print("Take Off Clothing")
     end,
 }
 

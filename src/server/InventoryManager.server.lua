@@ -71,17 +71,17 @@ players.PlayerAdded:Connect(function(plr)
     local PrimaryWeaponData = InventoryHandler.GenerateStorageData(6,3, "Primary", getStorageId())
     local SecondaryWeaponData = InventoryHandler.GenerateStorageData(3,3, "Secondary", getStorageId())
 
-    local StorageData1 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), true)
-    local StorageData2 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), true)
+    local StorageData1 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), 'starter')
+    local StorageData2 = InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), 'starter')
 
     InventoryHandler.AppendStorageArrayToQueue(PlayerInventory, {HeadData, TorsoData, LegsData, BackData, PrimaryWeaponData, SecondaryWeaponData, StorageData1, StorageData2})
 
-    local ItemData = PlayerInventory:GenerateItemData(StorageData1, "Helmet", getItemId())
-    local ItemData1 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley", getItemId())
+    --local ItemData = PlayerInventory:GenerateItemData(StorageData1, "Helmet", getItemId())
+    --local ItemData1 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley", getItemId())
     -- local ItemData2 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley", getItemId())
     -- local ItemData3 = PlayerInventory:GenerateItemData(StorageData2, "RickAstley1", getItemId())
 
-    InventoryHandler.AppendItemArrayToQueue(PlayerInventory, {ItemData, ItemData1})
+    --InventoryHandler.AppendItemArrayToQueue(PlayerInventory, {ItemData})
 
     PlayerStorageData[plr.UserId] = PlayerInventory
     SetData:Fire(plr, PlayerInventory)
@@ -153,6 +153,7 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, I
 
     
     local ItemData = plrInventory.Items[tostring(Id)]
+    print(ItemData)
     if ItemData.Type == Type then -- item exists on the server and it can be equipped
         local width = ItemInfo.Width
         local height = ItemInfo.Height
@@ -162,7 +163,7 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, I
         local starterStorageDataTable = {}
         local indices = {}
         for index, data in ipairs(plrInventory.Storages) do
-            if data.Starter then
+            if data.Tag == 'starter' then
                 table.insert(starterStorageDataTable, data.Id)
                 table.insert(indices, index)
                 if ItemData.Type ~= "Backpack" then break end
@@ -192,6 +193,8 @@ ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Id, p_Sto
         end
     end
 
+    print(StorageData)
+
     if not StorageData then
         print("Couldn't find Storage with ID: ".. p_StorageId)
         return nil
@@ -204,7 +207,7 @@ ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Id, p_Sto
 
     local StarterStorages = 0
     for _, data in ipairs(plrInventory.Storages) do
-        if data.Starter then
+        if data.Tag == 'starter' then
             StarterStorages = StarterStorages + 1
         end
     end
@@ -220,14 +223,15 @@ ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Id, p_Sto
     end
 
     local ItemData = plrInventory.Items[tostring(Id)]
-    if ItemData.Type == Type and StorageData.EquippedSlot.Id == Id then -- item exists on the server and it can be equipped
+    print(StorageData.EquippedSlot.Id, Id)
+    if ItemData.Type == Type and tostring(StorageData.EquippedSlot.Id) == tostring(Id) then -- item exists on the server and it can be equipped
         StorageData.EquippedSlot = nil
         if 2 - EquippedItems > 0 and StarterStorages + 1 <= 2 then
             local tab = {}
-            table.insert(tab, InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), true))
+            table.insert(tab, InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), 'starter'))
             StarterStorages = StarterStorages + 1
             if 2 - EquippedItems > 1 and StarterStorages + 1 <= 2 then
-                table.insert(tab, InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), true))
+                table.insert(tab, InventoryHandler.GenerateStorageData(2,2, nil, getStorageId(), 'starter'))
             end
             InventoryHandler.AppendStorageArrayToQueue(plrInventory, tab)
         end
@@ -278,9 +282,11 @@ ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageU
     elseif Action == "updatedata" then
         if Player.UserId ~= StorageUnit.User then return nil end
         local itemData = StorageUnit.Items[tostring(p_ItemId)]
-        for k, v in pairs(ItemData) do
-            itemData[k] = v
-        end
+        if not itemData then 
+            print("Item Doesn't exist on the server ID: ".. p_ItemId)
+            return nil
+        end 
+        itemData = ItemData
     end
 end)
 
@@ -308,9 +314,6 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
                 Data["Claimed"] = includes(data[tostring(x)], y)
             end
         end
-        -- for i, coords in ipairs(data) do
-        --     StorageData.Tiles[coords[1]][coords[2]]["Claimed"] = true
-        -- end
     elseif Action == "removeitem" then
         plrInventory.Items[p_ItemId] = nil
     elseif Action == "dropitem" then
@@ -330,7 +333,7 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
 
         -- item 
         local item = physicalItemDir:Clone()
-        item.Name = itemData.Item
+        item.Name = itemData.Name
 
         local PhysicalItem = PhysicalItemMod.new(item, data)
 
@@ -374,24 +377,61 @@ end)
 
 -- Generate Storage Units
 local StorageUnitParts = CollectionService:GetTagged("StorageUnit")
-for index, Part in ipairs(StorageUnitParts) do
+for _, Part in ipairs(StorageUnitParts) do
     local width = Part:GetAttribute("InventoryWidth") -- <Number>
     local height = Part:GetAttribute("InventoryHeight") -- <Number>
     if width and height then
         local accessible = Part:GetAttribute("Accessible") -- <Bool>
+        local ItemList = Part:GetAttribute("ItemList") -- <String>
         local UnitData = InventoryHandler.GenerateStorageUnitData(width, height, getUnitId(), accessible)
         local StorageUnit = StorageUnitMod.new(UnitData)
         table.insert(StorageUnits, StorageUnit)
 
-        -- add a way for player to open storage units
-        local ClickDetector = Instance.new("ClickDetector")
-        local ItemName = Part:GetAttribute("ItemName")
-        if Part:IsA("Model") then Part = Part:FindFirstChild("Main") end
-        ClickDetector.Parent = Part
+        -- generate items into the storage unit if accessible
         if accessible then
-            ClickDetector.MouseClick:Connect(function(Player)
+            local Items = {}
+            local tempString = ''
+            for i = 0, #ItemList do
+                local res = ItemList:sub(i, i)
+                if res == " " or i == #ItemList then 
+                    if i == #ItemList then tempString = tempString.. res end
+                    table.insert(Items, tempString);
+                    tempString = '';
+                else 
+                  tempString = tempString.. res
+                end
+            end
+
+            if Items then
+                -- items found now generate them
+                for _, ItemName in ipairs(Items) do
+                    -- check if item exists 
+                    if not ReplicatedStorage.ItemFrames:FindFirstChild(ItemName) then print("Couldn't Find Item: ".. ItemName);continue end
+                    local itemData =InventoryHandler.GenerateUnitItemData(StorageUnit, ItemName, getItemId())
+                    StorageUnit:InsertItem(itemData)
+                end
+            end
+        end
+
+        -- add a way for player to open storage units
+        local ProximityPrompt = Instance.new("ProximityPrompt")
+        local ItemName = Part:GetAttribute("ItemName")
+        local HoldDuration = tonumber(Part:GetAttribute("HoldDuration")) or 3
+        if Part:IsA("Model") then Part = Part:FindFirstChild("Main") end
+        ProximityPrompt.Parent = Part
+        ProximityPrompt.ActionText = "Open Storage"
+        if accessible then
+            ProximityPrompt.ClickablePrompt = true
+            ProximityPrompt.Triggered:Connect(function(Player)
                 local response = StorageUnit:Authorize(Player)
-                if not response then return nil end
+                if not response then 
+                    coroutine.wrap(function() 
+                        ProximityPrompt.ObjectText = "In Use"
+                        task.wait(4)
+                        ProximityPrompt.ObjectText = ""
+                    end)()
+                    return nil
+                end
 
                 local PlayerInventory = PlayerStorageData[Player.UserId] -- get Player Storage Data
                 if not PlayerInventory then
@@ -422,17 +462,15 @@ for index, Part in ipairs(StorageUnitParts) do
                 end)
             end)
         else
-            local itemData = {}
-            itemData.Name = ItemName
-            if not itemData.Name or not ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name) then return nil end
-            local item = ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name)
-            
-            itemData.Width = item:GetAttribute("Width")
-            itemData.Height = item:GetAttribute("Height")
-            itemData.Type = item:GetAttribute("Type")
-            itemData.Id = getItemId()
-            StorageUnit:InsertItem(itemData)
-            ClickDetector.MouseClick:Connect(function(Player) 
+            ProximityPrompt.HoldDuration = HoldDuration
+            -- generate custom item data for storage unit
+            local itemData = InventoryHandler.GenerateUnitItemData(StorageUnit, ItemName, getItemId())
+
+            if not itemData then
+                print("Something went wrong when generating an inaccessible storage unit")
+                return nil
+            end
+            ProximityPrompt.Triggered:Connect(function(Player) 
                 local response = StorageUnit:Authorize(Player)
                 if not response then return nil end
 

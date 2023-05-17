@@ -60,6 +60,7 @@ function Inventory:GenerateQueue()
 			if ItemQueue then
 				for _, ItemData in ipairs(ItemQueue) do
 					ItemData.StorageData = NewStorageData or oldStorageData
+					print(ItemData)
 					ItemData.Item = ReplicatedStorage.ItemFrames:FindFirstChild(ItemData.Item):Clone()
 					ItemData.Type = ItemData.Item:GetAttribute("Type")
 					local Item = ItemMod.new(ItemData)

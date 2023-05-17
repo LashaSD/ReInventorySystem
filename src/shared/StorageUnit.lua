@@ -96,7 +96,7 @@ function StorageUnit:GenerateUI(PlayerInventory)
     if game.Players.LocalPlayer.UserId ~= self.User then return end
     -- GRID UI
     local InventoryUi = game.Players.LocalPlayer.PlayerGui.Inventory.MainFrame.GridMainFrame
-    local StorageData = InventoryHandler.GenerateStorageData(self.Width, self.Height, nil, self.Id)
+    local StorageData = InventoryHandler.GenerateStorageData(self.Width, self.Height, nil, self.Id, 'unit')
     local FrameDir = InventoryUi.c.c
     StorageData = PlayerInventory:GenerateStorage(StorageData, FrameDir)
     -- ITEM UI
@@ -105,19 +105,23 @@ function StorageUnit:GenerateUI(PlayerInventory)
         local item = ReplicatedStorage.ItemFrames:FindFirstChild(data.Name):Clone()
         local itemData = PlayerInventory:GenerateItemData(StorageData, item.Name, data.Id)
         itemData.StorageData = StorageData
-        itemData.TileX = data.TileX
-        itemData.TileY = data.TileY
         itemData.Rotation = data.Rotation
         itemData.Offset = data.Offset
         itemData.Item = item
-        Item.new(itemData):Init()
-        if data.Rotation % 180 ~= 0 then
+        if data.Rotation and data.Rotation % 180 ~= 0 then
             local width = item:GetAttribute("Width")
             local height = item:GetAttribute("Height")
             itemData.Item:SetAttribute("Width", height)
             itemData.Item:SetAttribute("Height", width)
         end
+        local x, y = InventoryHandler.CheckFreeSpace(StorageData, item:GetAttribute("Width"), item:GetAttribute("Height"))
+        itemData.TileX = data.TileX or x
+        itemData.TileY = data.TileY or y
+        self.Items[id].TileX = itemData.TileX
+        self.Items[id].TileY = itemData.TileY
+        Item.new(itemData):Init()
     end
+
     local squares = InventoryHandler.EvaluateGridSquares(StorageData, self.Items)
     for x = 0, #StorageData.Tiles do
         for y = 0, #StorageData.Tiles[0] do

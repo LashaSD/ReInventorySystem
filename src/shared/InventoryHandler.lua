@@ -94,7 +94,7 @@ end
 function InventoryHandler.CheckFreeSpaceInventoryWide(Inv, Width, Height)
 	local storages = Inv.Storages
 	for _, data in ipairs(storages) do
-		if data.Type then continue end
+		if data.Type or data.Tag == 'unit' then continue end
 		local x, y = InventoryHandler.CheckFreeSpace(data, Width, Height)
 		if x and y then return data,x,y end
 	end
@@ -104,11 +104,11 @@ function InventoryHandler.EvaluateGridSquares(StorageData, Items)
 	local takenSquares = {}
 	for id, data in pairs(Items) do
 		-- this item is in the desired storage 
-		local itemFrame = ReplicatedStorage.ItemFrames:FindFirstChild(data.Item)
+		local itemFrame = ReplicatedStorage.ItemFrames:FindFirstChild(data.Name)
 		if not itemFrame then continue end
 		local width = itemFrame:GetAttribute("Width")
 		local height = itemFrame:GetAttribute("Height")
-		if data.Rotation % 180 ~= 0 then
+		if data.Rotaton and data.Rotation % 180 ~= 0 then
 			local i = width
 			width = height
 			height = i
@@ -135,7 +135,7 @@ function InventoryHandler.GenerateStorageUnitData(p_Width, p_Height, p_Id, p_Acc
 	return data
 end
 
-function InventoryHandler.GenerateStorageData(Width, Height, Type, Id, StarterTag)
+function InventoryHandler.GenerateStorageData(Width, Height, Type, Id, Tag)
 	if not Id then print("Id is required to generate storage data"); return nil end
 	local data = {}
 	data.Storage = nil
@@ -144,7 +144,7 @@ function InventoryHandler.GenerateStorageData(Width, Height, Type, Id, StarterTa
 	data.Id = Id or nil
 	data.Width = Width
 	data.Height = Height
-	data.Starter = StarterTag or false
+	data.Tag = Tag
 	
 	data.Tiles = {}
 
@@ -204,6 +204,21 @@ function InventoryHandler.GenerateItemData(Inventory, p_StorageData, p_Item, p_I
 	Data.TileY = nil
 	Inventory.Items[Data.Id] = Data
 	return Data
+end 
+
+function InventoryHandler.GenerateUnitItemData(p_StorageUnit, p_ItemName, p_Id)
+	local itemData = {}
+	itemData.Name = p_ItemName
+	if not p_ItemName or not ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name) then return nil end
+	local item = ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name)
+	
+	itemData.Item = item
+	itemData.Width = item:GetAttribute("Width")
+	itemData.Height = item:GetAttribute("Height")
+	itemData.Type = item:GetAttribute("Type")
+	itemData.Id = p_Id
+
+	return itemData
 end 
 
 -- Modified Function for generating Storage Units

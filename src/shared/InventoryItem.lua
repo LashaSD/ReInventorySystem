@@ -62,6 +62,15 @@ function InventoryItem:Init()
 	self:ChangeLocationWithinStorage(self.TileX, self.TileY)
     self:UpdateServer()
 
+    if self.StorageData.Storage.Parent.Name == 'c' then
+        local parsedData = {["TileX"] = self.TileX, ["TileY"] = self.TileY, 
+            ["Name"] = self.Item.Name, 
+            ["Offset"] = self.Offset, ["Rotation"] = self.CurrentOrientation, 
+            ["Width"] = self.Item:GetAttribute("Width"), ["Height"] = self.Item:GetAttribute("Height"),
+            ["Type"] = self.Type}
+        StorageUnitActions:FireServer("updatedata", self.StorageData.Id, self.Id, parsedData)
+    end
+
     self.OriginPosition = self.Item.Position
 
     -- make draggable
@@ -109,7 +118,7 @@ function InventoryItem:Init()
             ["Name"] = self.Item.Name, 
             ["Offset"] = self.Offset, ["Rotation"] = self.CurrentOrientation, 
             ["Width"] = self.Item:GetAttribute("Width"), ["Height"] = self.Item:GetAttribute("Height"),
-            ["Type"] = self.Type,}
+            ["Type"] = self.Type}
 
             -- Storage Unit Logic Update Item Location
             if not self.PendingStorageData and self.StorageData.Storage.Parent.Name == 'c' then 
@@ -268,12 +277,13 @@ function InventoryItem:Init()
     local confirmText = "Are You Sure?"
     local Options = self.Item.InputBegan:Connect(function(InputObject)
         if InputObject.UserInputType == Enum.UserInputType.MouseButton2 then
-            if self.StorageData.Storage.Parent.Name ~= "b" then return nil end
             if InfoBoxFrame then InfoBoxFrame:Destroy(); if connection1  then connection1:Disconnect() end end
 
             ItemOptions = ReplicatedStorage.Common.UiFrames:WaitForChild("ItemOptions"):Clone()
             local DeleteFrame = ItemOptions.DeleteFrame
             local DropFrame = ItemOptions.DropFrame
+
+            if self.StorageData.Storage.Parent.Name ~= "b" then DeleteFrame.Visible = false end
             
             local Mouse = Players.LocalPlayer:GetMouse()
             local x = Mouse.X
