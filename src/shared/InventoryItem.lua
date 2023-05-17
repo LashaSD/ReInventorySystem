@@ -16,7 +16,7 @@ local Events = script.Parent.Events
 local StorageUnitActions = Events:WaitForChild("StorageUnit")
 local InventoryActions = Events:WaitForChild("Inventory")
 
-local TileSize 
+local TileSize = ReplicatedStorage.Common.UiFrames.Tile.Size.X.Offset
 
 local InventoryItem = {}
 InventoryItem.__index = InventoryItem
@@ -50,8 +50,6 @@ function InventoryItem.new(ItemData)
 end
 
 function InventoryItem:Init()
-    TileSize = 30
-
     self.Connections = {}
 
 	local width = self.Item:GetAttribute("Width")

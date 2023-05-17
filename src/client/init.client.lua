@@ -18,6 +18,11 @@ local Character = Player.Character or Player.CharacterAdded:Wait()
 local InventoryUi = Player.PlayerGui:WaitForChild("Inventory")
 local OpenBtn = InventoryUi.Btn.Btn
 
+-- set the tileSize  
+
+local TileSize = InventoryUi.AbsoluteSize.X * 30 / 1280
+ReplicatedStorage.Common.UiFrames.Tile.Size = UDim2.fromOffset(TileSize, TileSize)
+
 -- Client Side Inventory
 local PlayerInventory = InventoryMod.new()
 
