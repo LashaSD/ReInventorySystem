@@ -340,7 +340,7 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
         PhysicalItem.Part.CFrame = hrp.CFrame * CFrame.new(offset)
 
         local prompt = PhysicalItem:GeneratePrompt(Player)
-        prompt.Triggered:Connect(function(Player) 
+        prompt.Triggered:Connect(function(Player)
             if PhysicalItem.Triggered then return nil end
             PhysicalItem.Triggered = true
             local playerInventory = PlayerStorageData[Player.UserId]
@@ -357,8 +357,6 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
             end
 
             PhysicalItem.Part:Destroy()
-
-
 
             local newItemData = InventoryHandler.GenerateItemData(playerInventory, sdata, PhysicalItem.Part.Name, getItemId())
             newItemData.TileX = x
@@ -425,7 +423,7 @@ for index, Part in ipairs(StorageUnitParts) do
         else
             local itemData = {}
             itemData.Name = ItemName
-            if not itemData.Name or not ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name) then print("Bruh") return nil end
+            if not itemData.Name or not ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name) then return nil end
             local item = ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name)
             
             itemData.Width = item:GetAttribute("Width")

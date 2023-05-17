@@ -34,6 +34,12 @@ end
 local function TriggerInventory()
 	InventoryUi.MainFrame.Visible = not InventoryUi.MainFrame.Visible
 	OpenBtn.Parent.Visible = not InventoryUi.MainFrame.Visible
+	-- check for unwanted ui and delete them
+	for i, child in ipairs(InventoryUi.MainFrame.GridMainFrame:GetChildren()) do
+		if child.Name ~= "a" and child.Name ~= "b" and child.Name ~= "c" and child.Name ~= "UICorner" then
+			child:Destroy()
+		end
+	end
 end 
 
 -- sync Client Data with Server Data (replication)

@@ -46,7 +46,6 @@ function Inventory:GenerateQueue()
 			local NewStorageData = nil
 			if not bool then
 				NewStorageData = self:GenerateStorage(StorageData, Frame)
-				print(NewStorageData)
 				if not StorageData.Type then
 					local InvisibleFrame = Frame:FindFirstChild("InvisibleFrame1")
 					local clone = InvisibleFrame:Clone()

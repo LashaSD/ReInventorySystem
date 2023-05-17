@@ -14,7 +14,16 @@ InventoryHandler.AppendStorageToQueue = function(Inv, StorageData)
 	local Data = {StorageData} -- convert to table to add items inside later
 	table.insert(Inv.Queue, Data)
 	if RunService:IsServer() then
-		table.insert(Inv.Storages, StorageData)
+		-- if it's a new storage and we're not rerendering an old one 
+		local isOld = false
+		for _, data in ipairs(Inv.Storages) do
+			if data.Id == StorageData.Id then
+				isOld = true
+			end
+		end
+		if not isOld then
+			table.insert(Inv.Storages, StorageData)
+		end
 	end	
 	return StorageData
 end
@@ -62,7 +71,6 @@ InventoryHandler.AppendStorageArrayToRemovalQueue = function(Inv, Storages)
 end 	
 
 function InventoryHandler.CheckFreeSpace(StorageData, Width, Height)
-	print(StorageData)
 	for Y = 0, #StorageData.Tiles[0] - Height + 1 do
 		local xTiles = StorageData.Tiles
 		for X = 0, #xTiles - Width + 1 do
@@ -74,7 +82,6 @@ function InventoryHandler.CheckFreeSpace(StorageData, Width, Height)
 						break
 					end
 					if i == X + Width - 1 and j == Y + Height - 1 then
-						print("Returned On: ".. i, j)
 						return X, Y
 					end 
 				end
