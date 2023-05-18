@@ -56,17 +56,15 @@ function Inventory:GenerateQueue()
 			end
 			-- generate all the items 
 			local ItemQueue = Data[2]
-
 			if ItemQueue then
 				for _, ItemData in ipairs(ItemQueue) do
 					ItemData.StorageData = NewStorageData or oldStorageData
 					ItemData.Item = ReplicatedStorage.ItemFrames:FindFirstChild(ItemData.Name):Clone()
 					ItemData.Type = ItemData.Item:GetAttribute("Type")
-					print(ItemData)
 					local Item = ItemMod.new(ItemData)
 					if Item then 
 						Item:Init() 
-						--self.Items[tostring(Item.Id)] = Item
+						self.Items[tostring(Item.Id)] = Item
 					end
 				end
 			end
@@ -92,7 +90,6 @@ function Inventory:EmptyRemovalQueue()
 						local SData, x, y = InventoryHandler.CheckFreeSpaceInventoryWide(self, width, height)
 						if SData and x and y then
 							data.StorageData = SData
-							data.Item = ReplicatedStorage.ItemFrames:WaitForChild(data.Name):Clone() or ReplicatedStorage.ItemFrames:WaitForChild(data.Item):Clone()
 							local succes = pcall(function() 
 								data.Item.Parent = SData.Storage
 							end)

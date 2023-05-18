@@ -213,7 +213,7 @@ function InventoryHandler.GenerateUnitItemData(p_StorageUnit, p_ItemName, p_Id)
 	if not p_ItemName or not ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name) then return nil end
 	local item = ReplicatedStorage.ItemFrames:FindFirstChild(itemData.Name)
 	
-	itemData.Item = item
+	-- itemData.Item = item
 	itemData.Width = item:GetAttribute("Width")
 	itemData.Height = item:GetAttribute("Height")
 	itemData.Type = item:GetAttribute("Type")

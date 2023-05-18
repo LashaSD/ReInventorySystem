@@ -43,6 +43,7 @@ end
 
 function StorageUnit:InsertItem(ItemData)
     if self.Accessible then
+        print(ItemData)
         print("Item Added To Storage ITEMID: ".. ItemData.Id)
         self.Items[tostring(ItemData.Id)] = ItemData
     else 

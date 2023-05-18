@@ -26,6 +26,7 @@ local StorageUnits = {}
 local ItemId = 0
 local StorageId = 0
 local unitId = 0
+local PItemId = 0
 
 --- Util Functions
 
@@ -57,6 +58,12 @@ end
 local function getUnitId()
     local i = unitId
     unitId = unitId + 1
+    return i
+end 
+
+local function getPItemId()
+    local i = PItemId
+    PItemId = PItemId + 1
     return i
 end 
 
@@ -276,8 +283,9 @@ ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageU
         if Player.UserId ~= StorageUnit.User then return nil end
         local InventoryData = PlayerStorageData[tostring(Player.UserId)]
         local itemData = StorageUnit:RemoveItem(p_ItemId)
-        if not itemData then return nil end
+        if not itemData then print("Failed to add item to the inventory"); return nil; end
         InventoryData.Items[tostring(p_ItemId)] = itemData
+        print(InventoryData)
     elseif Action == "updatedata" then
         if Player.UserId ~= StorageUnit.User then return nil end
         local itemData = StorageUnit.Items[tostring(p_ItemId)]
@@ -299,7 +307,6 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
         end
     end
     if not StorageData and Action ~= "dropitem" then
-        print(plrInventory, p_StorageId)
         print("Failed to fetch Storagedata and perform Action: ".. Action)
         return
     end
@@ -323,7 +330,7 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
 
         plrInventory.Items[p_ItemId] = nil
 
-        local physicalItemDir = ServerStorage.Items:FindFirstChild(itemData.Item)
+        local physicalItemDir = ServerStorage.Items:FindFirstChild(itemData.Name)
         if not physicalItemDir then 
             physicalItemDir = ServerStorage.Items:FindFirstChild('Default')
         end
@@ -362,13 +369,15 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
             end
 
             PhysicalItem.Part:Destroy()
+            
+            print(itemData)
+            itemData.TileX = x
+            itemData.TileY = y
+            itemData.Storage = sdata
 
-            local newItemData = InventoryHandler.GenerateItemData(playerInventory, sdata, PhysicalItem.Part.Name, getItemId())
-            newItemData.TileX = x
-            newItemData.TileY = y
-
+            playerInventory.Items[tostring(itemData.Id)] = itemData
             InventoryHandler.AppendStorageToQueue(playerInventory, sdata)
-            InventoryHandler.AppendItemToQueue(playerInventory, newItemData)
+            InventoryHandler.AppendItemToQueue(playerInventory, itemData)
 
             PlayerStorageData[tostring(Player.UserId)] = playerInventory
             SetData:Fire(Player, playerInventory)
@@ -405,11 +414,12 @@ for _, Part in ipairs(StorageUnitParts) do
             end
 
             if Items then
-                -- items found now generate them
+                -- generate found items
                 for _, ItemName in ipairs(Items) do
                     -- check if item exists 
                     if not ReplicatedStorage.ItemFrames:FindFirstChild(ItemName) then print("Couldn't Find Item: ".. ItemName);continue end
-                    local itemData =InventoryHandler.GenerateUnitItemData(StorageUnit, ItemName, getItemId())
+                    local itemData = InventoryHandler.GenerateUnitItemData(StorageUnit, ItemName, getItemId())
+
                     StorageUnit:InsertItem(itemData)
                 end
             end
