@@ -125,6 +125,7 @@ function StorageUnit:GenerateUI(PlayerInventory)
         self.Items[id].TileX = itemData.TileX
         self.Items[id].TileY = itemData.TileY
         Item.new(itemData):Init()
+        print(itemData)
         table.insert(Items, self.Items[id])
     end
 

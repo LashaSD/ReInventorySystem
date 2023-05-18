@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local ServerStorage = game:GetService("ServerStorage")
+local StarterPack = game:GetService("StarterPack")
 
 --- Libs
 local Inventory = require(ReplicatedStorage.Common:WaitForChild("Inventory"))
@@ -83,13 +84,14 @@ players.PlayerAdded:Connect(function(plr)
 
     --InventoryHandler.AppendItemArrayToQueue(PlayerInventory, {ItemData})
 
-    PlayerStorageData[plr.UserId] = PlayerInventory
+    PlayerStorageData[tostring(plr.UserId)] = PlayerInventory
     SetData:Fire(plr, PlayerInventory)
+    print(PlayerStorageData)
 end)
 
 players.PlayerRemoving:Connect(function(Player)
     local id = Player.UserId
-    local inventory = PlayerStorageData[id]
+    local inventory = PlayerStorageData[tostring(id)]
     if not inventory or not inventory.StorageUnit then return nil end
     local storageUnit = nil
     for _, v in ipairs(StorageUnits) do
@@ -98,18 +100,18 @@ players.PlayerRemoving:Connect(function(Player)
         end
     end
     if storageUnit then storageUnit:Deauthorize() end
-    PlayerStorageData[id] = nil
+    PlayerStorageData[tostring(id)] = nil
 end)
 
 ClientEvents.GetStorageData.OnServerEvent:Connect(function(Player)
-    if not PlayerStorageData[Player.UserId] then return nil end
-    return PlayerStorageData[Player.UserId]
+    if not PlayerStorageData[tostring(Player.UserId)] then return nil end
+    return PlayerStorageData[tostring(Player.UserId)]
 end)
 
 -- Bindable Event that updates and synces player inventory data on server and client
 SetData.Event:Connect(function(Plr, p_InventoryData, p_UnitData, p_StorageDataIndex)
     if not (Plr and (p_InventoryData or p_UnitData)) then return nil end
-    local storages = PlayerStorageData[Plr.UserId].Storages
+    local storages = PlayerStorageData[tostring(Plr.UserId)].Storages
 
     ClientEvents.GetStorageData:FireClient(Plr, p_InventoryData, p_UnitData) -- send data to client
     if p_InventoryData then
@@ -117,18 +119,18 @@ SetData.Event:Connect(function(Plr, p_InventoryData, p_UnitData, p_StorageDataIn
     end
     local InventoryData = p_InventoryData
     if p_UnitData then
-        InventoryData = p_InventoryData or PlayerStorageData[Plr.UserId]
+        InventoryData = p_InventoryData or PlayerStorageData[tostring(Plr.UserId)]
         InventoryData.StorageUnit = p_UnitData
     end
-    PlayerStorageData[Plr.UserId] = InventoryData
-    PlayerStorageData[Plr.UserId].Storages = storages
+    PlayerStorageData[tostring(Plr.UserId)] = InventoryData
+    PlayerStorageData[tostring(Plr.UserId)].Storages = storages
     if p_StorageDataIndex then
-        PlayerStorageData[Plr.UserId].Storages[p_StorageDataIndex].EquippedSlot = p_InventoryData.Storages[p_StorageDataIndex].EquippedSlot
+        PlayerStorageData[tostring(Plr.UserId)].Storages[p_StorageDataIndex].EquippedSlot = p_InventoryData.Storages[p_StorageDataIndex].EquippedSlot
     end
 end)
 
 ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, Id, p_StorageId)
-    local plrInventory = PlayerStorageData[Player.UserId]
+    local plrInventory = PlayerStorageData[tostring(Player.UserId)]
     if not plrInventory or not Id or not p_StorageId then return nil end
 
     local StorageData = nil
@@ -153,15 +155,12 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, I
 
     
     local ItemData = plrInventory.Items[tostring(Id)]
-    print("Checking Validity")
-    print(ItemData)
-    print(Type)
+
     if ItemData.Type == Type then -- item exists on the server and it can be equipped
         local width = ItemInfo.Width
         local height = ItemInfo.Height
         StorageData.EquippedSlot = ItemData
-        
-        print("Checking Starter Slots for removal")
+
         -- find the starter slots
         local starterStorageDataTable = {}
         local indices = {}
@@ -174,20 +173,18 @@ ClientEvents.EquipEvent.OnServerEvent:Connect(function(Player, Type, ItemInfo, I
         end
 
         if width and height then -- valid to equip
-            print("generating an inventory")
             local AddedStorage = InventoryHandler.GenerateStorageData(width, height, nil, "ASBN"..ItemData.Id)
             InventoryHandler.AppendStorageToQueue(plrInventory, AddedStorage)
-            if starterStorageDataTable then InventoryHandler.AppendStorageArrayToRemovalQueue(plrInventory, starterStorageDataTable) end
+            if starterStorageDataTable then print(starterStorageDataTable); InventoryHandler.AppendStorageArrayToRemovalQueue(plrInventory, starterStorageDataTable) end
         end
         plrInventory.Storages[StorageDataIndex] = StorageData
-        PlayerStorageData[Player.UserId] = plrInventory
-        print("sending a signal to update your inventory")
+        PlayerStorageData[tostring(Player.UserId)] = plrInventory
         SetData:Fire(Player, plrInventory, nil, StorageDataIndex)
     end
 end)
 
 ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Id, p_StorageId)
-    local plrInventory = PlayerStorageData[Player.UserId]
+    local plrInventory = PlayerStorageData[tostring(Player.UserId)]
     if not plrInventory or not Id or not p_StorageId then return nil end
 
     local StorageData = nil
@@ -239,7 +236,7 @@ ClientEvents.UnequipEvent.OnServerEvent:Connect(function(Player, Type, Id, p_Sto
         end
         InventoryHandler.AppendStorageToRemovalQueue(plrInventory, "ASBN"..Id)
         SetData:Fire(Player, plrInventory)
-        PlayerStorageData[Player.UserId].RemovalQueue = {}
+        PlayerStorageData[tostring(Player.UserId)].RemovalQueue = {}
     end
 end)
 
@@ -255,12 +252,12 @@ ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageU
     end
     if Action == "deauthorize" then
         StorageUnit:Deauthorize()
-        PlayerStorageData[Player.UserId].StorageUnit = nil
+        PlayerStorageData[tostring(Player.UserId)].StorageUnit = nil
         if unitConnection then
             unitConnection:Disconnect()
         end
     elseif Action == "additem" then
-        local InventoryData = PlayerStorageData[Player.UserId]
+        local InventoryData = PlayerStorageData[tostring(Player.UserId)]
         local itemData = nil
         for index, Data in pairs(InventoryData.Items) do
             if Data.Id == p_ItemId then
@@ -277,7 +274,7 @@ ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageU
         StorageUnit:InsertItem(itemData)
     elseif Action == "removeitem" then
         if Player.UserId ~= StorageUnit.User then return nil end
-        local InventoryData = PlayerStorageData[Player.UserId]
+        local InventoryData = PlayerStorageData[tostring(Player.UserId)]
         local itemData = StorageUnit:RemoveItem(p_ItemId)
         if not itemData then return nil end
         InventoryData.Items[tostring(p_ItemId)] = itemData
@@ -293,7 +290,7 @@ ClientEvents.StorageUnit.OnServerEvent:Connect(function(Player, Action, StorageU
 end)
 
 ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageId, p_ItemId, data)
-    local plrInventory = PlayerStorageData[Player.UserId]
+    local plrInventory = PlayerStorageData[tostring(Player.UserId)]
     -- get the storage data
     local StorageData = nil
     for _, Data in ipairs(plrInventory.Storages) do
@@ -302,6 +299,7 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
         end
     end
     if not StorageData and Action ~= "dropitem" then
+        print(plrInventory, p_StorageId)
         print("Failed to fetch Storagedata and perform Action: ".. Action)
         return
     end
@@ -344,12 +342,12 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
         local offset = Vector3.new(0,0,-5)
         PhysicalItem.Part.CFrame = hrp.CFrame * CFrame.new(offset)
 
-        local prompt = PhysicalItem:GeneratePrompt(Player)
+        local prompt = PhysicalItem:GeneratePrompt()
         local connection = nil
         connection = prompt.Triggered:Connect(function(Player)
             if PhysicalItem.Triggered then return nil end
             PhysicalItem.Triggered = true
-            local playerInventory = PlayerStorageData[Player.UserId]
+            local playerInventory = PlayerStorageData[tostring(Player.UserId)]
             if not playerInventory then PhysicalItem.Triggered = false; return nil end
 
             local itemFrame = ReplicatedStorage.ItemFrames:FindFirstChild(PhysicalItem.Part.Name)
@@ -368,12 +366,11 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
             local newItemData = InventoryHandler.GenerateItemData(playerInventory, sdata, PhysicalItem.Part.Name, getItemId())
             newItemData.TileX = x
             newItemData.TileY = y
-            
 
             InventoryHandler.AppendStorageToQueue(playerInventory, sdata)
             InventoryHandler.AppendItemToQueue(playerInventory, newItemData)
 
-            PlayerStorageData[Player.UserId] = plrInventory
+            PlayerStorageData[tostring(Player.UserId)] = playerInventory
             SetData:Fire(Player, playerInventory)
             connection:Disconnect()
         end)
@@ -438,7 +435,7 @@ for _, Part in ipairs(StorageUnitParts) do
                     return nil
                 end
 
-                local PlayerInventory = PlayerStorageData[Player.UserId] -- get Player Storage Data
+                local PlayerInventory = PlayerStorageData[tostring(Player.UserId)] -- get Player Storage Data
                 if not PlayerInventory then
                     StorageUnit:Deauthorize()
                     return nil
@@ -479,7 +476,7 @@ for _, Part in ipairs(StorageUnitParts) do
                 local response = StorageUnit:Authorize(Player)
                 if not response then return nil end
 
-                local PlayerInventory = PlayerStorageData[Player.UserId] -- get Player Storage Data
+                local PlayerInventory = PlayerStorageData[tostring(Player.UserId)] -- get Player Storage Data
                 if not PlayerInventory then
                     StorageUnit:Deauthorize()
                     return nil
@@ -499,6 +496,7 @@ for _, Part in ipairs(StorageUnitParts) do
                 if not itemFrame then StorageUnit:Deauthorize(); return nil end
                 local itemWidth = itemFrame:GetAttribute("Width")
                 local itemHeight = itemFrame:GetAttribute("Height")
+                print(PlayerInventory)
                 local sdata, x, y = InventoryHandler.CheckFreeSpaceInventoryWide(PlayerInventory, itemWidth, itemHeight)
 
                 if not sdata then print("No Space"); StorageUnit:Deauthorize();return nil end
@@ -510,7 +508,7 @@ for _, Part in ipairs(StorageUnitParts) do
                 InventoryHandler.AppendStorageToQueue(PlayerInventory, sdata)
                 InventoryHandler.AppendItemToQueue(PlayerInventory, newItemData)
 
-                PlayerStorageData[Player.UserId] = PlayerInventory
+                PlayerStorageData[tostring(Player.UserId)] = PlayerInventory
                 SetData:Fire(Player, PlayerInventory)
                 StorageUnit:Deauthorize()
             end)

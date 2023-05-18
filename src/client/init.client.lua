@@ -56,6 +56,8 @@ Events.GetStorageData.OnClientEvent:Connect(function(ServerPlayerStorage, Server
 		PlayerInventory.Queue = ServerPlayerStorage.Queue
 		PlayerInventory.RemovalQueue = ServerPlayerStorage.RemovalQueue
 		PlayerInventory:GenerateQueue()
+		print("Removal Queue")
+		print(PlayerInventory.RemovalQueue)
 		PlayerInventory:EmptyRemovalQueue()
 	end
 
@@ -102,3 +104,8 @@ OpenBtn.MouseButton1Click:Connect(function()
 		end
 	end 
 end)
+
+
+
+task.wait(2)
+print(PlayerInventory)
