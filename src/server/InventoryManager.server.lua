@@ -325,10 +325,10 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
         plrInventory.Items[p_ItemId] = nil
     elseif Action == "dropitem" then
         -- check if item exists
-        local itemData = plrInventory.Items[p_ItemId]
+        local itemData = plrInventory.Items[tostring(p_ItemId)]
         if not itemData then return nil end
 
-        plrInventory.Items[p_ItemId] = nil
+        plrInventory.Items[tostring(p_ItemId)] = nil
 
         local physicalItemDir = ServerStorage.Items:FindFirstChild(itemData.Name)
         if not physicalItemDir then 
@@ -348,6 +348,8 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
 
         local offset = Vector3.new(0,0,-5)
         PhysicalItem.Part.CFrame = hrp.CFrame * CFrame.new(offset)
+
+        print("Here")
 
         local prompt = PhysicalItem:GeneratePrompt()
         local connection = nil
@@ -380,6 +382,7 @@ ClientEvents.Inventory.OnServerEvent:Connect(function(Player, Action, p_StorageI
             InventoryHandler.AppendItemToQueue(playerInventory, itemData)
 
             PlayerStorageData[tostring(Player.UserId)] = playerInventory
+            print(playerInventory)
             SetData:Fire(Player, playerInventory)
             connection:Disconnect()
         end)
